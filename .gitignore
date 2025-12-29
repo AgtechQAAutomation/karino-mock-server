@@ -20,3 +20,8 @@ logs.txt
 secret.md
 # app.env
 tmp
+app.env 
+
+# Documentation & generated files
+docs/
+query/
