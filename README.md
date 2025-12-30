@@ -1,84 +1,82 @@
-# Karino Mock Server
+# Karino Mock Server — Additional Setup
 
-> A small Go-based mock server for Karino — provides example endpoints and data for development and testing.
+Follow these steps to install Swagger tooling, set your PATH, generate Swagger docs, and create the `query` folder used by GORM's codegen.
 
-## Features
-- Simple REST mock implemented in Go
-- Swagger/OpenAPI docs included (`docs/swagger.yaml`, `docs/swagger.json`)
-- Docker Compose for easy local environment
-
-## Prerequisites
-- Go 1.20+ installed
-- Docker & Docker Compose (for containerized run)
-
-## Quick Start
-
-1. Start services with Docker Compose:
+1. Start services with Docker Compose (if not already running):
 
 ```bash
-make dev
-# or
-docker-compose up -d
+docker compose up -d
 ```
 
-2. Run the server locally (development):
+2. Install the Swagger CLI (`swag`):
 
 ```bash
-# install live-reload tool if needed
-make install-modules
+go install github.com/swaggo/swag/cmd/swag@latest
+```
 
-# then start with air (if installed)
-make start-server
+3. Check your `GOPATH` (to confirm where Go installs binaries):
 
-# or run directly with Go
+```bash
+echo $GOPATH
+```
+
+4. Open your Zsh configuration to update your `PATH` (macOS / zsh):
+
+```bash
+nano ~/.zshrc
+```
+
+5. Add this line at the end of `~/.zshrc` to include Go's bin directory in your `PATH`:
+
+```bash
+export PATH=$PATH:$(go env GOPATH)/bin
+```
+
+6. Reload your shell configuration:
+
+```bash
+source ~/.zshrc
+```
+
+7. Verify `swag` is installed:
+
+```bash
+swag --version
+```
+
+8. Generate Swagger docs from the code (runs `swag init` in project root):
+
+```bash
+swag init
+```
+
+
+9. Install GORM's CLI to create the `query` folder with in-built functions:
+
+```bash
+go install gorm.io/cli/gorm@latest
+```
+
+10. Install or tidy module dependencies (recommended after adding or installing modules):
+
+```bash
+go mod tidy
+```
+
+11. Run the generator to create/query scaffolding (run this first to generate `query`):
+
+```bash
+go run cmd/generate/main.go
+```
+
+12. Finally, run the server:
+
+```bash
 go run main.go
 ```
 
-4. Stop Docker Compose when finished:
+13. Open Swagger UI in your browser:
 
-```bash
-make dev-down
-```
-
-## Running the generator
-There is a generator command under `cmd/generate`. To run it:
-
-```bash
-go run ./cmd/generate
-# or
-go run ./cmd/generate/main.go
-```
-
-## API Documentation
-Open the included Swagger files to view the API surface:
-
-- `docs/swagger.yaml`
-- `docs/swagger.json`
-
-You can load `docs/swagger.yaml` into Swagger UI or similar tools.
-
-## Project Layout
-- `main.go` — application entrypoint
-- `controllers/` — HTTP route handlers (e.g. `farmers.controller.go`)
-- `models/` — data models (e.g. `farmers.model.go`)
-- `initializers/` — initialization code (DB, env)
-- `cmd/` — subcommands and tools (codegen under `cmd/generate`)
-- `docs/` — swagger definitions
-- `docker-compose.yml` — local stack
-- `app.env` — example environment variables
-
-## Notes
-- The project is intentionally lightweight and intended as a mock server for local development and testing. Adjust environment variables in `app.env` as needed.
-- If you prefer not to use Docker, ensure any required services (DB) are running locally and configured via environment variables.
-
-## Next steps
-- Run the server and open the Swagger file in Swagger UI to explore endpoints.
-- If you'd like, I can add example curl commands or a Postman collection.
-
----
-Generated on 2025-12-29
-# Debugger
-
-```sh
-go install github.com/go-delve/delve/cmd/dlv@latest
+```text
+Open http://localhost:8000/swagger/index.html
 ```
