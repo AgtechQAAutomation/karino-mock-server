@@ -1,21 +1,17 @@
 package models
 
-// SuccessListResponse represents the paginated response for farmers
-type SuccessListResponse struct {
-	Success bool               `json:"success"`
-	Data    ListFarmerResponse `json:"data"`
+// ListFarmersResponse is the top-level list response
+type ListFarmersResponse struct {
+	Data       []FarmerResponse `json:"data"`
+	Pagination PaginationInfo   `json:"pagination"`
 }
 
-// ListFarmerResponse contains the items and paging metadata
-type ListFarmerResponse struct {
-	Items    []FarmerDetails    `json:"items"`
-	Metadata PaginationMetadata `json:"metadata"`
-}
-
-// PaginationMetadata holds paging info
-type PaginationMetadata struct {
-	TotalRecord int `json:"totalRecord"`
-	TotalPage   int `json:"totalPage"`
-	CurrentPage int `json:"currentPage"`
-	Limit       int `json:"limit"`
+// PaginationInfo matches the required pagination format
+type PaginationInfo struct {
+	Page         int  `json:"page"`
+	Limit        int  `json:"limit"`
+	TotalItems   int  `json:"total_items"`
+	TotalPages   int  `json:"total_pages"`
+	HasPrevious  bool `json:"has_previous"`
+	HasNext      bool `json:"has_next"`
 }

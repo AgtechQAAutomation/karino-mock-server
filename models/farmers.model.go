@@ -64,31 +64,31 @@ type ErrorResponse struct {
 
 // ValidateStruct is a generic function that validates any struct against 'validate' tags
 // It returns a slice of ErrorResponse pointers if validation fails
-func ValidateStruct[T any](payload T) []*ErrorResponse {
-	var errors []*ErrorResponse
+// func ValidateStruct[T any](payload T) []*ErrorResponse {
+// 	var errors []*ErrorResponse
 
-	// Execute validation
-	err := validate.Struct(payload)
+// 	// Execute validation
+// 	err := validate.Struct(payload)
 
-	if err != nil {
-		// Cast the error to validator.ValidationErrors to access individual field errors
-		for _, err := range err.(validator.ValidationErrors) {
-			var element ErrorResponse
-			element.Field = err.StructNamespace() // e.g., "CreateDetailSchema.FirstName"
-			element.Tag = err.Tag()               // e.g., "required"
-			element.Value = err.Param()           // e.g., "32" (for min=32)
+// 	if err != nil {
+// 		// Cast the error to validator.ValidationErrors to access individual field errors
+// 		for _, err := range err.(validator.ValidationErrors) {
+// 			var element ErrorResponse
+// 			element.Field = err.StructNamespace() // e.g., "CreateDetailSchema.FirstName"
+// 			element.Tag = err.Tag()               // e.g., "required"
+// 			element.Value = err.Param()           // e.g., "32" (for min=32)
 
-			errors = append(errors, &element)
-		}
-	}
+// 			errors = append(errors, &element)
+// 		}
+// 	}
 
-	return errors
-}
+// 	return errors
+// }
 
 // CreateDetailSchema represents request body
 // swagger:model CreateDetailSchema
 type CreateDetailSchema struct {
-	FarmerID           string `json:"farmerId" example:"F58982"`
+	FarmerID           string `json:"farmerId" example:"string"`
 	FirstName          string `json:"firstName" example:"string"`
 	LastName           string `json:"lastName" example:"string"`
 	MobileNumber       string `json:"mobile_number" example:"string"`
