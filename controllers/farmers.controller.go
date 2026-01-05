@@ -3,6 +3,7 @@ package controllers
 import (
 	"math"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -12,10 +13,27 @@ import (
 	// "gorm.io/gorm"
 )
 
+func isCoopAllowed(coopId string) bool {
+	// 1. Get the string from your loaded config
+	// (Assuming initializers.Config is your global config var)
+	rawList := initializers.AppConfig.AllowedCooperatives
+
+	// 2. Split it into a slice
+	allowed := strings.Split(rawList, ",")
+
+	// 3. Check if the ID exists in the slice
+	for _, id := range allowed {
+		if strings.TrimSpace(id) == coopId {
+			return true
+		}
+	}
+	return false
+}
+
 // CreateCustomerDetailHandler handles POST /spic_to_erp/customers/:coopId/farmers
 // @Summary      Create a new farmer detail
 // @Description  Create a new record in the details table
-// @Tags         Details
+// @Tags         details
 // @Accept       json
 // @Produce      json
 // @Param        coopId  path      string                            true  "Cooperative ID"
@@ -51,7 +69,7 @@ func CreateCustomerDetailHandler(c *fiber.Ctx) error {
 		return SendCustomerErrorResponse(c, "Farmer with the given KYC ID "+payload.FarmerKycID+" already exists.", payload.FarmerID)
 	}
 
-	if coopId == "" {
+	if !isCoopAllowed(coopId) {
 		return SendCustomerErrorResponse(c, "The indicated cooperative does not exist.", payload.FarmerID)
 	}
 
@@ -125,7 +143,7 @@ func SendCustomerErrorResponse(c *fiber.Ctx, msg string, farmerId string) error 
 // FindDetails handles GET /spic_to_erp/customers/:coopId/farmers
 // @Summary      List farmer details
 // @Description  Get a paginated list of farmer details for a specific cooperative
-// @Tags         Details
+// @Tags         details
 // @Accept       json
 // @Produce      json
 // @Param        coopId path      string  true   " "
@@ -194,7 +212,7 @@ func FindCustomerDetailsHandler(c *fiber.Ctx) error {
 // CreateVendorDetailHandler handles POST /spic_to_erp/vendors/:coopId/farmers
 // @Summary      Create a new farmer detail
 // @Description  Create a new record in the details table
-// @Tags         Details
+// @Tags         details
 // @Accept       json
 // @Produce      json
 // @Param        coopId  path      string                            true  "Cooperative ID"
@@ -289,7 +307,7 @@ func CreateVendorDetailHandler(c *fiber.Ctx) error {
 // FindDetails handles GET /spic_to_erp/vendors/:coopId/farmers
 // @Summary      List farmer details
 // @Description  Get a paginated list of farmer details for a specific cooperative
-// @Tags         Details
+// @Tags         details
 // @Accept       json
 // @Produce      json
 // @Param        coopId path      string  true   " "
@@ -358,7 +376,7 @@ func FindVendorDetailsHandler(c *fiber.Ctx) error {
 // FindDetails handles GET /spic_to_erp/customers/:coopId/farmers/:farmerId
 // @Summary      List farmer details
 // @Description  Get a paginated list of farmer details for a specific cooperative
-// @Tags         Details
+// @Tags         details
 // @Accept       json
 // @Produce      json
 // @Param        coopId path      string  true   " "
@@ -369,17 +387,40 @@ func GetCustomerDetailHandler(c *fiber.Ctx) error {
 	coopId := c.Params("coopId")
 	farmerId := c.Params("farmerId")
 
+	if !isCoopAllowed(coopId) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"Message": "The indicated cooperative does not exist."})
+	}
 	var farmer models.FarmerDetails
-
 	err := initializers.DB.
 		Where("coop_id = ? AND farmer_id = ?", coopId, farmerId).
 		First(&farmer).Error
 
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(models.ErrorFarmerResponse{
-			Success: false,
-			Message: "Farmer not found",
-		})
+		response := models.FarmerDetailResponse{
+			FarmerID:           farmerId,
+			Name:               "",
+			MobileNumber:       "",
+			Cooperative:        coopId,
+			SettlementID:       0,
+			SettlementPartID:   0,
+			ZipCode:            "",
+			FarmerKycTypeID:    0,
+			FarmerKycType:      "",
+			FarmerKycID:        "",
+			ClubID:             "",
+			ClubLeaderFarmerID: "",
+			Message:            "",
+			EntityID:           "", // or permanent entity ID
+			CustomerCode:       "",
+			VendorCode:         "",
+			CreatedDate:        "1900-01-01T00:00:00",
+			UpdatedDate:        "1900-01-01T00:00:00",
+			BankDetails: models.BankDetailsInfo{
+				IBAN:  "", // ensure field exists
+				SWIFT: "", // ensure field exists
+			},
+		}
+		return c.Status(fiber.StatusOK).JSON(response)
 	}
 
 	response := models.FarmerDetailResponse{
@@ -401,10 +442,10 @@ func GetCustomerDetailHandler(c *fiber.Ctx) error {
 		VendorCode:         farmer.VendorID,
 		CreatedDate:        farmer.CreatedAt.Format("2006-01-02T15:04:05Z"),
 		UpdatedDate:        farmer.UpdatedAt.Format("2006-01-02T15:04:05Z"),
-		// BankDetails: models.BankDetailsInfo{
-		// 	IBAN:  farmer.IBAN,   // ensure field exists
-		// 	SWIFT: farmer.SWIFT,  // ensure field exists
-		// },
+		BankDetails: models.BankDetailsInfo{
+			IBAN:  "", // ensure field exists
+			SWIFT: "", // ensure field exists
+		},
 	}
 
 	return c.Status(fiber.StatusOK).JSON(response)
@@ -413,7 +454,7 @@ func GetCustomerDetailHandler(c *fiber.Ctx) error {
 // FindDetails handles GET /spic_to_erp/vendors/:coopId/farmers/:farmerId
 // @Summary      List farmer details
 // @Description  Get a paginated list of farmer details for a specific cooperative
-// @Tags         Details
+// @Tags         details
 // @Accept       json
 // @Produce      json
 // @Param        coopId path      string  true   " "
@@ -424,6 +465,9 @@ func GetVendorDetailHandler(c *fiber.Ctx) error {
 	coopId := c.Params("coopId")
 	farmerId := c.Params("farmerId")
 
+	if !isCoopAllowed(coopId) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"Message": "The indicated cooperative does not exist."})
+	}
 	var farmer models.FarmerDetails
 
 	err := initializers.DB.
@@ -431,10 +475,31 @@ func GetVendorDetailHandler(c *fiber.Ctx) error {
 		First(&farmer).Error
 
 	if err != nil {
-		return c.Status(fiber.StatusNotFound).JSON(models.ErrorFarmerResponse{
-			Success: false,
-			Message: "Farmer not found",
-		})
+		response := models.FarmerDetailResponse{
+			FarmerID:           farmerId,
+			Name:               "",
+			MobileNumber:       "",
+			Cooperative:        coopId,
+			SettlementID:       0,
+			SettlementPartID:   0,
+			ZipCode:            "",
+			FarmerKycTypeID:    0,
+			FarmerKycType:      "",
+			FarmerKycID:        "",
+			ClubID:             "",
+			ClubLeaderFarmerID: "",
+			Message:            "",
+			EntityID:           "", // or permanent entity ID
+			CustomerCode:       "",
+			VendorCode:         "",
+			CreatedDate:        "1900-01-01T00:00:00",
+			UpdatedDate:        "1900-01-01T00:00:00",
+			BankDetails: models.BankDetailsInfo{
+				IBAN:  "", // ensure field exists
+				SWIFT: "", // ensure field exists
+			},
+		}
+		return c.Status(fiber.StatusOK).JSON(response)
 	}
 
 	response := models.FarmerDetailResponse{
@@ -456,10 +521,10 @@ func GetVendorDetailHandler(c *fiber.Ctx) error {
 		VendorCode:         farmer.VendorID,
 		CreatedDate:        farmer.CreatedAt.Format("2006-01-02T15:04:05Z"),
 		UpdatedDate:        farmer.UpdatedAt.Format("2006-01-02T15:04:05Z"),
-		// BankDetails: models.BankDetailsInfo{
-		// 	IBAN:  farmer.IBAN,   // ensure field exists
-		// 	SWIFT: farmer.SWIFT,  // ensure field exists
-		// },
+		BankDetails: models.BankDetailsInfo{
+			IBAN:  "", // ensure field exists
+			SWIFT: "", // ensure field exists
+		},
 	}
 
 	return c.Status(fiber.StatusOK).JSON(response)

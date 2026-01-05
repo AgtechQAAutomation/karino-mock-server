@@ -11,8 +11,12 @@ type Config struct {
 	DBName         string `mapstructure:"MYSQL_DATABASE"`
 	DBPort         string `mapstructure:"MYSQL_PORT"`
 
-	ClientOrigin string `mapstructure:"CLIENT_ORIGIN"`
+	ClientOrigin        string `mapstructure:"CLIENT_ORIGIN"`
+	AllowedCooperatives string `mapstructure:"ALLOWED_COOPERATIVES"`
+	ApiKey              string `mapstructure:"APIKey"`
 }
+
+var AppConfig Config
 
 func LoadConfig(path string) (config Config, err error) {
 	viper.AddConfigPath(path)
@@ -27,5 +31,6 @@ func LoadConfig(path string) (config Config, err error) {
 	}
 
 	err = viper.Unmarshal(&config)
+	AppConfig = config
 	return
 }
