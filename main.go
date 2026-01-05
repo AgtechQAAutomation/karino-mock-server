@@ -15,7 +15,7 @@ import (
 	_ "github.com/shyamsundaar/karino-mock-server/docs"
 )
 
-// @title Detail & Note API
+// @title ERP Farmer & Sales Order Integration API
 // @version 1.0
 // @description This is a sample CRUD API for managing Notes and Farmer Details
 // @termsOfService http://swagger.io/terms/
@@ -50,6 +50,7 @@ func main() {
 	// --- Details Routes ---
 	micro.Route("/spic_to_erp", func(router fiber.Router) {
 		router.Use(middleware.ApiKeyAuth)
+		router.Use(middleware.JSONProviderMiddleware)
 		router.Route("/customers", func(router fiber.Router) {
 			router.Post("/:coopId/farmers", controllers.CreateCustomerDetailHandler)
 			router.Get("/:coopId/farmers/:farmerId", controllers.GetCustomerDetailHandler)
