@@ -7,14 +7,17 @@ import (
 	"fmt"
 	"regexp"
 	"time"
-	"database/sql"
 	"log"
+	"context"
+	// "database/sql"
+	
 
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/shyamsundaar/karino-mock-server/initializers"
 	"github.com/shyamsundaar/karino-mock-server/models"
-	// "github.com/shyamsundaar/karino-mock-server/query"
+	// "karino-mock-server/query"
+	"github.com/shyamsundaar/karino-mock-server/query"
 	// "gorm.io/gorm"
 )
 
@@ -35,132 +38,120 @@ func isCoopAllowed(coopId string) bool {
 	return false
 }
 
-func GenerateAndSetNextCustomerID(db *sql.DB, detailID uint) (string, error) {
-	// 1. Check if customer_id already exists
-	var customerID sql.NullString
-	err := db.QueryRow(`
-		SELECT customer_id
-		FROM farmer_details
-		WHERE id = ?
-	`, detailID).Scan(&customerID)
+func GenerateAndSetNextCustomerIDGen(
+	ctx context.Context,
+	q *query.Query,
+	detailID uint,
+) (string, error) {
 
+	fd := q.FarmerDetails.WithContext(ctx)
+
+	// 1. Get current row
+	row, err := fd.Where(q.FarmerDetails.ID.Eq(detailID)).First()
 	if err != nil {
 		return "", err
 	}
 
-	if customerID.Valid && customerID.String != "" {
-		return customerID.String, nil
+	if row.CustomerID != "" {
+		return row.CustomerID, nil
 	}
 
-	// 2. Get last NON-NULL customer_id
-	var lastCustomerID sql.NullString
-	_ = db.QueryRow(`
-		SELECT customer_id
-		FROM farmer_details
-		WHERE customer_id IS NOT NULL AND customer_id != ''
-		ORDER BY id DESC
-		LIMIT 1
-	`).Scan(&lastCustomerID)
+	// 2. Get last non-empty customer_id
+	last, err := fd.
+		Where(q.FarmerDetails.CustomerID.Neq("")).
+		Order(q.FarmerDetails.ID.Desc()).
+		First()
 
-	nextNumber := 1
-	if lastCustomerID.Valid {
+	next := 1
+	if err == nil && last.CustomerID != "" {
 		re := regexp.MustCompile(`\d+$`)
-		match := re.FindString(lastCustomerID.String)
-		if match != "" {
-			n, _ := strconv.Atoi(match)
-			nextNumber = n + 1
+		if m := re.FindString(last.CustomerID); m != "" {
+			n, _ := strconv.Atoi(m)
+			next = n + 1
 		}
 	}
 
-	newCustomerID := fmt.Sprintf("CUST-%05d", nextNumber)
+	newCustomerID := fmt.Sprintf("CUST%05d", next)
 
 	// 3. Business delay
 	time.Sleep(5 * time.Second)
 
-	// 4. Update ONLY if still empty
-	result, err := db.Exec(`
-		UPDATE farmer_details
-		SET customer_id = ?
-		WHERE id = ? AND (customer_id IS NULL OR customer_id = '')
-	`, newCustomerID, detailID)
+	// 4. Update only if still empty
+	_, err = fd.
+		Where(
+			q.FarmerDetails.ID.Eq(detailID),
+			q.FarmerDetails.CustomerID.Eq(""),
+		).
+		UpdateColumnSimple(
+			q.FarmerDetails.CustomerID.Value(newCustomerID),
+			q.FarmerDetails.CustIDUpdateAt.Value(time.Now()),
+		)
 
 	if err != nil {
 		return "", err
-	}
-
-	rows, err := result.RowsAffected()
-	if err != nil {
-		log.Println("❌ RowsAffected error:", err)
-	} else {
-		log.Println("✅ Customer ID update rows affected:", rows)
 	}
 
 	return newCustomerID, nil
 }
 
 
-func GenerateAndSetNextVendorID(db *sql.DB, detailID uint) (string, error) {
-	// 1. Check if vendor_id already exists
-	var vendorID sql.NullString
-	err := db.QueryRow(`
-		SELECT vendor_id
-		FROM farmer_details
-		WHERE id = ?
-	`, detailID).Scan(&vendorID)
 
+func GenerateAndSetNextVendorIDGen(
+	ctx context.Context,
+	q *query.Query,
+	detailID uint,
+) (string, error) {
+
+	fd := q.FarmerDetails.WithContext(ctx)
+
+	// 1. Get current row
+	row, err := fd.Where(q.FarmerDetails.ID.Eq(detailID)).First()
 	if err != nil {
 		return "", err
 	}
 
-	if vendorID.Valid && vendorID.String != "" {
-		return vendorID.String, nil
+	if row.VendorID != "" {
+		return row.VendorID, nil
 	}
 
-	// 2. Get last NON-NULL vendor_id
-	var lastVendorID sql.NullString
-	_ = db.QueryRow(`
-		SELECT vendor_id
-		FROM farmer_details
-		WHERE vendor_id IS NOT NULL AND vendor_id != ''
-		ORDER BY id DESC
-		LIMIT 1
-	`).Scan(&lastVendorID)
+	// 2. Get last non-empty vendor_id
+	last, err := fd.
+		Where(q.FarmerDetails.VendorID.Neq("")).
+		Order(q.FarmerDetails.ID.Desc()).
+		First()
 
-	nextNumber := 1
-	if lastVendorID.Valid {
+	next := 1
+	if err == nil && last.VendorID != "" {
 		re := regexp.MustCompile(`\d+$`)
-		match := re.FindString(lastVendorID.String)
-		if match != "" {
-			n, _ := strconv.Atoi(match)
-			nextNumber = n + 1
+		if m := re.FindString(last.VendorID); m != "" {
+			n, _ := strconv.Atoi(m)
+			next = n + 1
 		}
 	}
 
-	newVendorID := fmt.Sprintf("VEND%05d", nextNumber)
+	newVendorID := fmt.Sprintf("VEND%05d", next)
 
 	// 3. Business delay
 	time.Sleep(5 * time.Second)
 
-	// 4. Update ONLY if still empty
-	result, err := db.Exec(`
-		UPDATE farmer_details
-		SET vendor_id = ?
-		WHERE id = ? AND (vendor_id IS NULL OR vendor_id = '')
-	`, newVendorID, detailID)
+	// 4. Update only if still empty
+	_, err = fd.
+		Where(
+			q.FarmerDetails.ID.Eq(detailID),
+			q.FarmerDetails.VendorID.Eq(""),
+		).
+		UpdateColumnSimple(
+			q.FarmerDetails.VendorID.Value(newVendorID),
+			q.FarmerDetails.VendorIDUpdateAt.Value(time.Now()),
+		)
 
 	if err != nil {
 		return "", err
 	}
 
-	rows, err := result.RowsAffected()
-	if err != nil {
-		log.Println("❌ Vendor RowsAffected error:", err)
-	} else {
-		log.Println("✅ Vendor ID update rows affected:", rows)
-	}
-
 	return newVendorID, nil
 }
+
 
 // CreateCustomerDetailHandler handles POST /spic_to_erp/customers/:coopId/farmers
 // @Summary      Create a new farmer detail
@@ -234,16 +225,18 @@ func CreateCustomerDetailHandler(c *fiber.Ctx) error {
 
 	// 5. Save to Database (GORM fills in CreatedAt/UpdatedAt here)
 	result := initializers.DB.Create(&newDetail)
-	sqlDB, err := initializers.DB.DB()
-	if err != nil {
-		log.Println("❌ Failed to get sql.DB:", err)
-	} else {
-		go func(detailID uint) {
-			if _, err := GenerateAndSetNextCustomerID(sqlDB, detailID); err != nil {
-				log.Println("❌ Failed to generate customer ID:", err)
-			}
-		}(newDetail.ID)
-	}
+	ctx := context.Background()
+	q := query.Use(initializers.DB)
+
+	go func(id uint) {
+		var err error
+
+		_, err = GenerateAndSetNextCustomerIDGen(ctx, q, id)
+		if err != nil {
+			log.Println("❌ Vendor ID gen failed:", err)
+		}
+	}(newDetail.ID)
+
 
 	if result.Error != nil {
 		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{"status": "error", "message": result.Error.Error()})
@@ -422,15 +415,15 @@ func CreateVendorDetailHandler(c *fiber.Ctx) error {
 
 	// 5. Save to Database (GORM fills in CreatedAt/UpdatedAt here)
 	result := initializers.DB.Create(&newDetail)
-	sqlDB, err := initializers.DB.DB()
-	if err != nil {
-		log.Println("❌ Failed to get sql.DB:", err)
-		return nil
-	}
+	ctx := context.Background()
+	q := query.Use(initializers.DB)
 
-	go func(detailID uint) {
-		if _, err := GenerateAndSetNextVendorID(sqlDB, detailID); err != nil {
-			log.Println("❌ Vendor ID generation failed:", err)
+	go func(id uint) {
+		var err error
+
+		_, err = GenerateAndSetNextVendorIDGen(ctx, q, id)
+		if err != nil {
+			log.Println("❌ Vendor ID gen failed:", err)
 		}
 	}(newDetail.ID)
 
