@@ -53,11 +53,13 @@ func main() {
 		router.Use(middleware.JSONProviderMiddleware)
 		router.Route("/customers", func(router fiber.Router) {
 			router.Post("/:coopId/farmers", controllers.CreateCustomerDetailHandler)
+			router.Get("/:coopId/farmers", controllers.FindCustomerDetailsHandler)
 			router.Get("/:coopId/farmers/:farmerId", controllers.GetCustomerDetailHandler)
 		})
 
 		router.Route("/vendors", func(router fiber.Router) {
 			router.Post("/:coopId/farmers", controllers.CreateVendorDetailHandler)
+			router.Get("/:coopId/farmers", controllers.FindCustomerDetailsHandler)
 			router.Get("/:coopId/farmers/:farmerId", controllers.GetVendorDetailHandler)
 
 		})

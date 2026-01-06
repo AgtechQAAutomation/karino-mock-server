@@ -1,21 +1,19 @@
 package controllers
 
 import (
+	"context"
+	"fmt"
+	"log"
 	"math"
+	"regexp"
 	"strconv"
 	"strings"
-	"fmt"
-	"regexp"
 	"time"
-	"log"
-	"context"
-	// "database/sql"
-	
-
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/shyamsundaar/karino-mock-server/initializers"
 	"github.com/shyamsundaar/karino-mock-server/models"
+
 	// "karino-mock-server/query"
 	"github.com/shyamsundaar/karino-mock-server/query"
 	// "gorm.io/gorm"
@@ -94,8 +92,6 @@ func GenerateAndSetNextCustomerIDGen(
 	return newCustomerID, nil
 }
 
-
-
 func GenerateAndSetNextVendorIDGen(
 	ctx context.Context,
 	q *query.Query,
@@ -152,7 +148,6 @@ func GenerateAndSetNextVendorIDGen(
 	return newVendorID, nil
 }
 
-
 // CreateCustomerDetailHandler handles POST /spic_to_erp/customers/:coopId/farmers
 // @Summary      Create a new farmer detail
 // @Description  Create a new record in the details table
@@ -168,11 +163,43 @@ func CreateCustomerDetailHandler(c *fiber.Ctx) error {
 	coopId := c.Params("coopId")
 	var payload *models.CreateDetailSchema
 	var existingFarmer models.FarmerDetails
-
-	// 2. Parse the JSON Body
 	if err := c.BodyParser(&payload); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "fail", "message": err.Error()})
 	}
+	err := initializers.DB.Where("farmer_id = ? AND coop_id = ? AND (customer_id IS NULL OR customer_id = '')",
+		payload.FarmerID,
+		coopId,
+	).First(&existingFarmer).Error
+
+	if err == nil {
+		// If customer_id is empty → generate & update
+		if existingFarmer.CustomerID == "" {
+			ctx := context.Background()
+			q := query.Use(initializers.DB)
+
+			go func(id uint) {
+				if _, err := GenerateAndSetNextCustomerIDGen(ctx, q, id); err != nil {
+					log.Println("❌ Customer ID generation failed:", err)
+				}
+			}(existingFarmer.ID)
+		}
+		response := models.CreateSuccessFarmerResponse{
+			Success: true,
+			Data: models.FarmerResponse{
+				TempERPCustomerID: existingFarmer.TempID,
+				ErpCustomerId:     existingFarmer.CustomerID,
+				ErpVendorId:       existingFarmer.VendorID,
+				FarmerId:          existingFarmer.FarmerID,
+				CreatedAt:         existingFarmer.CreatedAt.Format("2006-01-02T15:04:05Z"),
+				UpdatedAt:         existingFarmer.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+				Message:           "Farmer detail created successfully",
+			},
+		}
+
+		return c.Status(fiber.StatusCreated).JSON(response)
+
+	}
+	// 2. Parse the JSON Body
 
 	//3. Constraints for the payload check
 	if payload.FarmerID == "" {
@@ -237,7 +264,6 @@ func CreateCustomerDetailHandler(c *fiber.Ctx) error {
 		}
 	}(newDetail.ID)
 
-
 	if result.Error != nil {
 		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{"status": "error", "message": result.Error.Error()})
 	}
@@ -289,9 +315,14 @@ func SendCustomerErrorResponse(c *fiber.Ctx, msg string, farmerId string) error 
 // @Router       /spic_to_erp/customers/{coopId}/farmers [get]
 func FindCustomerDetailsHandler(c *fiber.Ctx) error {
 	coopId := c.Params("coopId")
+	updatedFrom := c.Query("updatedFrom")
+	updatedTo := c.Query("updatedTo")
 
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+	if limit <= 0 {
+		limit = 10
+	}
 	offset := (page - 1) * limit
 
 	var farmers []models.FarmerDetails
@@ -299,8 +330,23 @@ func FindCustomerDetailsHandler(c *fiber.Ctx) error {
 
 	query := initializers.DB.
 		Model(&models.FarmerDetails{}).
-		Where("coop_id = ?", coopId)
+		Where("coop_id = ? AND customer_id IS NOT NULL", coopId)
 
+	if updatedFrom != "" {
+		fromTime, err := time.Parse(time.RFC3339, updatedFrom)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Invalid updatedFrom format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)"})
+		}
+		query = query.Where("updated_at >= ?", fromTime)
+	}
+
+	if updatedTo != "" {
+		toTime, err := time.Parse(time.RFC3339, updatedTo)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Invalid updatedTo format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)"})
+		}
+		query = query.Where("updated_at <= ?", toTime)
+	}
 	query.Count(&totalRecords)
 
 	if err := query.
@@ -317,7 +363,7 @@ func FindCustomerDetailsHandler(c *fiber.Ctx) error {
 	totalPages := int(math.Ceil(float64(totalRecords) / float64(limit)))
 
 	// ✅ Map DB → RESPONSE MODEL
-	var data []models.FarmerResponse
+	data := make([]models.FarmerResponse, 0)
 	for _, f := range farmers {
 		data = append(data, models.FarmerResponse{
 			ErpCustomerId:     f.CustomerID,
@@ -362,6 +408,40 @@ func CreateVendorDetailHandler(c *fiber.Ctx) error {
 	// 2. Parse the JSON Body
 	if err := c.BodyParser(&payload); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "fail", "message": err.Error()})
+	}
+
+	err := initializers.DB.Where("farmer_id = ? AND coop_id = ? AND (vendor_id IS NULL OR vendor_id = '')",
+		payload.FarmerID,
+		coopId,
+	).First(&existingFarmer).Error
+
+	if err == nil {
+		// If customer_id is empty → generate & update
+		if existingFarmer.VendorID == "" {
+			ctx := context.Background()
+			q := query.Use(initializers.DB)
+
+			go func(id uint) {
+				if _, err := GenerateAndSetNextVendorIDGen(ctx, q, id); err != nil {
+					log.Println("❌ Vendor ID generation failed:", err)
+				}
+			}(existingFarmer.ID)
+		}
+		response := models.CreateSuccessFarmerResponse{
+			Success: true,
+			Data: models.FarmerResponse{
+				TempERPCustomerID: existingFarmer.TempID,
+				ErpCustomerId:     existingFarmer.CustomerID,
+				ErpVendorId:       existingFarmer.VendorID,
+				FarmerId:          existingFarmer.FarmerID,
+				CreatedAt:         existingFarmer.CreatedAt.Format("2006-01-02T15:04:05Z"),
+				UpdatedAt:         existingFarmer.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+				Message:           "Farmer detail created successfully",
+			},
+		}
+
+		return c.Status(fiber.StatusCreated).JSON(response)
+
 	}
 
 	//3. Constraints for the payload check
@@ -465,9 +545,14 @@ func CreateVendorDetailHandler(c *fiber.Ctx) error {
 // @Router       /spic_to_erp/vendors/{coopId}/farmers [get]
 func FindVendorDetailsHandler(c *fiber.Ctx) error {
 	coopId := c.Params("coopId")
+	updatedFrom := c.Query("updatedFrom")
+	updatedTo := c.Query("updatedTo")
 
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+	if limit <= 0 {
+		limit = 10
+	}
 	offset := (page - 1) * limit
 
 	var farmers []models.FarmerDetails
@@ -475,7 +560,23 @@ func FindVendorDetailsHandler(c *fiber.Ctx) error {
 
 	query := initializers.DB.
 		Model(&models.FarmerDetails{}).
-		Where("coop_id = ?", coopId)
+		Where("coop_id = ? AND vedor_id IS NOT NULL", coopId)
+
+	if updatedFrom != "" {
+		fromTime, err := time.Parse(time.RFC3339, updatedFrom)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Invalid updatedFrom format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)"})
+		}
+		query = query.Where("updated_at >= ?", fromTime)
+	}
+
+	if updatedTo != "" {
+		toTime, err := time.Parse(time.RFC3339, updatedTo)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Invalid updatedTo format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)"})
+		}
+		query = query.Where("updated_at <= ?", toTime)
+	}
 
 	query.Count(&totalRecords)
 
@@ -493,7 +594,7 @@ func FindVendorDetailsHandler(c *fiber.Ctx) error {
 	totalPages := int(math.Ceil(float64(totalRecords) / float64(limit)))
 
 	// ✅ Map DB → RESPONSE MODEL
-	var data []models.FarmerResponse
+	data := make([]models.FarmerResponse, 0)
 	for _, f := range farmers {
 		data = append(data, models.FarmerResponse{
 			ErpCustomerId:     f.CustomerID,

@@ -34,21 +34,21 @@ type FarmerDetails struct {
 	ClubLeaderFarmerID          string     `json:"clubLeaderFarmerId" `
 	RaithuCreatedDate           *time.Time `json:"raithuCreatedDate" gorm:"default:null"`
 	RaithuUpdatedAt             *time.Time `json:"raithuUpdatedAt" gorm:"default:null"`
-	CreatedAt                   *time.Time `gorm:"default:null" `
-	UpdatedAt                   *time.Time `gorm:"default:null"`
+	CreatedAt                   time.Time  `gorm:"default:null" `
+	UpdatedAt                   time.Time  `gorm:"default:null"`
 	CustIDUpdateAt              *time.Time `gorm:"default:null"`
 	VendorIDUpdateAt            *time.Time `gorm:"default:null"`
 }
 
 // BeforeCreate Hook to handle any logic before saving to DB
 func (d *FarmerDetails) BeforeCreate(tx *gorm.DB) (err error) {
-	now := time.Now().UTC()
+	var now = time.Now().UTC()
 	if d.TempID == "" {
 		d.TempID = uuid.New().String()
 	}
 
-	d.CreatedAt = &now
-	d.UpdatedAt = &now
+	d.CreatedAt = now
+	d.UpdatedAt = now
 	return nil
 }
 
