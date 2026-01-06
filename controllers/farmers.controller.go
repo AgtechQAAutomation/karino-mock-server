@@ -330,7 +330,7 @@ func FindCustomerDetailsHandler(c *fiber.Ctx) error {
 
 	query := initializers.DB.
 		Model(&models.FarmerDetails{}).
-		Where("coop_id = ? AND AND (customer_id IS NULL OR customer_id = '')", coopId)
+		Where("coop_id = ? AND customer_id IS NOT NULL AND customer_id != '' ", coopId)
 
 	if updatedFrom != "" {
 		fromTime, err := time.Parse(time.RFC3339, updatedFrom)
@@ -560,7 +560,7 @@ func FindVendorDetailsHandler(c *fiber.Ctx) error {
 
 	query := initializers.DB.
 		Model(&models.FarmerDetails{}).
-		Where("coop_id = ? AND AND (vendor_id IS NULL OR vendor_id = '')", coopId)
+		Where("coop_id = ? AND vendor_id IS NOT NULL AND vendor_id != ''", coopId)
 
 	if updatedFrom != "" {
 		fromTime, err := time.Parse(time.RFC3339, updatedFrom)
