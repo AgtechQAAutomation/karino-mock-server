@@ -54,6 +54,9 @@ func main() {
 		router.Route("/customers", func(router fiber.Router) {
 			router.Post("/:coopId/farmers", controllers.CreateCustomerDetailHandler)
 			router.Get("/:coopId/farmers/:farmerId", controllers.GetCustomerDetailHandler)
+			router.Post("/:coopId/salesorders", controllers.CreateCustomerSalesDetailHandler)
+			// router.Get("/:coopId/salesorders", controllers.GetCustomerSalesDetailHandler)
+			// router.Get("/:coopId/salesorders/:salesordersId", controllers.GetCustomerSalesDetailHandler)
 		})
 
 		router.Route("/vendors", func(router fiber.Router) {

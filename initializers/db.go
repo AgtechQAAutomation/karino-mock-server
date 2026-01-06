@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/shyamsundaar/karino-mock-server/models"
+	"github.com/shyamsundaar/karino-mock-server/models/farmers"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"

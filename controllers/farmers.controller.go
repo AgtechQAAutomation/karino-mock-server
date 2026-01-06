@@ -15,7 +15,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/shyamsundaar/karino-mock-server/initializers"
-	"github.com/shyamsundaar/karino-mock-server/models"
+	"github.com/shyamsundaar/karino-mock-server/models/farmers"
 	// "karino-mock-server/query"
 	"github.com/shyamsundaar/karino-mock-server/query"
 	// "gorm.io/gorm"
@@ -25,7 +25,7 @@ func isCoopAllowed(coopId string) bool {
 	// 1. Get the string from your loaded config
 	// (Assuming initializers.Config is your global config var)
 	rawList := initializers.AppConfig.AllowedCooperatives
-
+	
 	// 2. Split it into a slice
 	allowed := strings.Split(rawList, ",")
 
@@ -74,7 +74,7 @@ func GenerateAndSetNextCustomerIDGen(
 	newCustomerID := fmt.Sprintf("CUST%05d", next)
 
 	// 3. Business delay
-	time.Sleep(5 * time.Second)
+	time.Sleep(time.Duration(initializers.AppConfig.TimeSeconds) * time.Second)
 
 	// 4. Update only if still empty
 	_, err = fd.
@@ -132,8 +132,7 @@ func GenerateAndSetNextVendorIDGen(
 	newVendorID := fmt.Sprintf("VEND%05d", next)
 
 	// 3. Business delay
-	time.Sleep(5 * time.Second)
-
+	time.Sleep(time.Duration(initializers.AppConfig.TimeSeconds) * time.Second)
 	// 4. Update only if still empty
 	_, err = fd.
 		Where(
@@ -152,11 +151,10 @@ func GenerateAndSetNextVendorIDGen(
 	return newVendorID, nil
 }
 
-
 // CreateCustomerDetailHandler handles POST /spic_to_erp/customers/:coopId/farmers
 // @Summary      Create a new farmer detail
 // @Description  Create a new record in the details table
-// @Tags         details
+// @Tags         default
 // @Accept       json
 // @Produce      json
 // @Param        coopId  path      string                            true  "Cooperative ID"
@@ -277,7 +275,7 @@ func SendCustomerErrorResponse(c *fiber.Ctx, msg string, farmerId string) error 
 // FindDetails handles GET /spic_to_erp/customers/:coopId/farmers
 // @Summary      List farmer details
 // @Description  Get a paginated list of farmer details for a specific cooperative
-// @Tags         details
+// @Tags         default
 // @Accept       json
 // @Produce      json
 // @Param        coopId path      string  true   " "
@@ -346,7 +344,7 @@ func FindCustomerDetailsHandler(c *fiber.Ctx) error {
 // CreateVendorDetailHandler handles POST /spic_to_erp/vendors/:coopId/farmers
 // @Summary      Create a new farmer detail
 // @Description  Create a new record in the details table
-// @Tags         details
+// @Tags         default
 // @Accept       json
 // @Produce      json
 // @Param        coopId  path      string                            true  "Cooperative ID"
@@ -453,7 +451,7 @@ func CreateVendorDetailHandler(c *fiber.Ctx) error {
 // FindDetails handles GET /spic_to_erp/vendors/:coopId/farmers
 // @Summary      List farmer details
 // @Description  Get a paginated list of farmer details for a specific cooperative
-// @Tags         details
+// @Tags         default
 // @Accept       json
 // @Produce      json
 // @Param        coopId path      string  true   " "
@@ -522,7 +520,7 @@ func FindVendorDetailsHandler(c *fiber.Ctx) error {
 // FindDetails handles GET /spic_to_erp/customers/:coopId/farmers/:farmerId
 // @Summary      List farmer details
 // @Description  Get a paginated list of farmer details for a specific cooperative
-// @Tags         details
+// @Tags         default
 // @Accept       json
 // @Produce      json
 // @Param        coopId path      string  true   " "
@@ -600,7 +598,7 @@ func GetCustomerDetailHandler(c *fiber.Ctx) error {
 // FindDetails handles GET /spic_to_erp/vendors/:coopId/farmers/:farmerId
 // @Summary      List farmer details
 // @Description  Get a paginated list of farmer details for a specific cooperative
-// @Tags         details
+// @Tags         default
 // @Accept       json
 // @Produce      json
 // @Param        coopId path      string  true   " "

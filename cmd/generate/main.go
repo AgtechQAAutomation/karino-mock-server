@@ -1,7 +1,8 @@
 package main
 
 import (
-	"github.com/shyamsundaar/karino-mock-server/models"
+	"github.com/shyamsundaar/karino-mock-server/models/farmers"
+	// "github.com/shyamsundaar/karino-mock-server/models/sales"
 	"gorm.io/gen"
 )
 

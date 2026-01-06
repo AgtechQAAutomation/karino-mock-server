@@ -14,6 +14,7 @@ type Config struct {
 	ClientOrigin        string `mapstructure:"CLIENT_ORIGIN"`
 	AllowedCooperatives string `mapstructure:"ALLOWED_COOPERATIVES"`
 	ApiKey              string `mapstructure:"APIKey"`
+	TimeSeconds         int    `mapstructure:"TIME_SECONDS"`
 }
 
 var AppConfig Config
