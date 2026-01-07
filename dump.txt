@@ -159,3 +159,143 @@ func GetCustomerSalesDetailHandler(c *fiber.Ctx) error {
 
 	return c.Status(fiber.StatusOK).JSON(response)
 }
+
+
+
+
+// func CreateCustomerSalesDetailHandler(c *fiber.Ctx) error {
+// 	coopId := c.Params("coopId")
+
+// 	// 1. Parse request
+// 	var payload sales.SalesOrder
+// 	if err := c.BodyParser(&payload); err != nil {
+// 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+// 			"status":  "fail",
+// 			"message": err.Error(),
+// 		})
+// 	}
+
+// 	// 2. IMPORTANT: set FK on each order item
+// 	for i := range payload.OrderItems {
+// 		payload.OrderItems[i].OrderID = payload.OrderID
+// 	}
+
+// 	// 3. Map payload → DB model
+// 	newDetail := sales.SalesOrder{
+// 		OrderID:                payload.OrderID,
+// 		OrderNumber:            payload.OrderNumber,
+// 		ContractID:             payload.ContractID,
+// 		FarmerID:               payload.FarmerID,
+// 		FarmerName:             payload.FarmerName,
+// 		ClubID:                 coopId,
+// 		ClubName:               payload.ClubName,
+// 		FarmerResourceCategory: payload.FarmerResourceCategory,
+// 		ContractCrop:           payload.ContractCrop,
+// 		ContractCropVareity:    payload.ContractCropVareity,
+// 		ContractArea:           payload.ContractArea,
+// 		SponsorID:              payload.SponsorID,
+// 		SponsorName:            payload.SponsorName,
+// 		BuyerID:                payload.BuyerID,
+// 		BuyerName:              payload.BuyerName,
+// 		PackageSetCaptionPT:    payload.PackageSetCaptionPT,
+// 		RegionID:               payload.RegionID,
+// 		RegionPartID:           payload.RegionPartID,
+// 		SettlementID:           payload.SettlementID,
+// 		SettlementPartID:       payload.SettlementPartID,
+// 		CustomZone1ID:          payload.CustomZone1ID,
+// 		CustomZone2ID:          payload.CustomZone2ID,
+// 		PickupDate:             payload.PickupDate,
+// 		CreatedBy:              payload.CreatedBy,
+// 		OrderItems:             payload.OrderItems,
+// 	}
+
+// 	// 4. Save using TRANSACTION (best practice)
+// 	if err := initializers.DB.Transaction(func(tx *gorm.DB) error {
+// 		return tx.Create(&newDetail).Error
+// 	}); err != nil {
+// 		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{
+// 			"status":  "error",
+// 			"message": err.Error(),
+// 		})
+// 	}
+
+// 	// 5. Response
+// 	response := sales.CreateSalesOrderResponse{
+// 		Success: true,
+// 		Data: sales.CreateSalesOrderResponseData{
+// 			TempERPSalesOrderId: "TEMP-SO-001",
+// 			ErpSalesOrderId:     payload.OrderID,
+// 			ErpSalesOrderCode:   payload.OrderNumber,
+// 			SpicSalesOrderId:    payload.OrderID,
+// 			CreatedAt:           time.Now().UTC().Format("2006-01-02T15:04:05Z"),
+// 			UpdatedAt:           time.Now().UTC().Format("2006-01-02T15:04:05Z"),
+// 			Message:             "Sales order created successfully",
+// 		},
+// 	}
+
+// 	return c.Status(fiber.StatusCreated).JSON(response)
+// }
+
+
+
+07/01/2026
+func PostCustomerSalesOrdersHandler(c *fiber.Ctx) error {
+	coopId := c.Params("coopId")
+	var orders []sales.SalesOrder
+
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+	offset := (page - 1) * limit
+
+	var totalRecords int64
+
+	// Base query
+	query := initializers.DB.
+		Model(&sales.SalesOrder{}).
+		Where("club_id = ?", coopId)
+
+	// Count total records
+	query.Count(&totalRecords)
+
+	// Fetch paginated data
+	if err := query.
+		Limit(limit).
+		Offset(offset).
+		Preload("OrderItems"). // optional (only if needed)
+		Find(&orders).Error; err != nil {
+
+		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{
+			"success": false,
+			"message": err.Error(),
+		})
+	}
+
+	// totalPages := int(math.Ceil(float64(totalRecords) / float64(limit)))
+
+	// Map DB → RESPONSE DTO
+	var data []sales.SalesOrderListResponse
+	for _, o := range orders {
+		data = append(data, sales.SalesOrderListResponse{
+			OrderID:     o.OrderID,
+			OrderNumber: o.OrderNumber,
+			FarmerID:    o.FarmerID,
+			FarmerName:  o.FarmerName,
+			ClubID:      o.ClubID,
+			ClubName:    o.ClubName,
+			CreatedAt:   o.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:   o.UpdatedAt.Format(time.RFC3339),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(sales.ListSalesOrderResponse{
+		Data: data,
+		// Pagination: sales.PaginationInfo{
+		// 	Page:        page,
+		// 	Limit:       limit,
+		// 	TotalItems:  int(totalRecords),
+		// 	TotalPages:  totalPages,
+		// 	HasPrevious: page > 1,
+		// 	HasNext:     page < totalPages,
+		// },
+	})
+}

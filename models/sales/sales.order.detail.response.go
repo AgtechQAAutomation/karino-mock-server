@@ -1,5 +1,4 @@
 package sales
-
 type CreateSalesOrderResponse struct {
 	Success bool                        `json:"success"`
 	Data    CreateSalesOrderResponseData `json:"data"`
@@ -13,4 +12,8 @@ type CreateSalesOrderResponseData struct {
 	CreatedAt           string `json:"createdAt"`
 	UpdatedAt           string `json:"updatedAt"`
 	Message             string `json:"Message"`
+}
+type ErrorSalesOrderResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message"`
 }

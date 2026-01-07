@@ -28,7 +28,7 @@ import (
 // @name APIKey
 
 // @security ApiKeyAuth
-// @host localhost:8000
+// @host localhost:8001
 // @BasePath /
 func main() {
 	app := fiber.New()
@@ -54,9 +54,9 @@ func main() {
 		router.Route("/customers", func(router fiber.Router) {
 			router.Post("/:coopId/farmers", controllers.CreateCustomerDetailHandler)
 			router.Get("/:coopId/farmers/:farmerId", controllers.GetCustomerDetailHandler)
-			router.Post("/:coopId/salesorders", controllers.CreateCustomerSalesDetailHandler)
-			// router.Get("/:coopId/salesorders", controllers.GetCustomerSalesDetailHandler)
-			// router.Get("/:coopId/salesorders/:salesordersId", controllers.GetCustomerSalesDetailHandler)
+			router.Post("/:coopId/salesorders", controllers.CreateCustomerSalesOrderHandler)
+			router.Get("/:coopId/salesorders", controllers.GetCustomerSalesDetailHandler)
+			router.Get("/:coopId/salesorders/:salesordersId", controllers.GetCustomerSalesOrderDetailsHandler)
 		})
 
 		router.Route("/vendors", func(router fiber.Router) {
@@ -66,7 +66,7 @@ func main() {
 		})
 	})
 
-	log.Fatal(app.Listen(":8000"))
+	log.Fatal(app.Listen(":8001"))
 }
 
 func init() {
