@@ -155,8 +155,8 @@ func CreateCustomerSalesOrderHandler(c *fiber.Ctx) error {
 			ErpSalesOrderId:     "", // populate later if async
 			ErpSalesOrderCode:   "",
 			SpicSalesOrderId:    newOrder.OrderID,
-			CreatedAt:           newOrder.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:           newOrder.UpdatedAt.Format(time.RFC3339),
+			CreatedAt:           newOrder.CreatedAt.Format("2006-01-02T15:04:05Z"),
+			UpdatedAt:           newOrder.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 			Message:             "Sales order created successfully",
 		},
 	}
@@ -214,8 +214,8 @@ func GetCustomerSalesDetailHandler(c *fiber.Ctx) error {
 			FarmerName:  f.FarmerName,
 			ClubID:      f.ClubID,
 			ClubName:    f.ClubName,
-			CreatedAt:   f.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:   f.UpdatedAt.Format(time.RFC3339),
+			CreatedAt:   f.CreatedAt.Format("2006-01-02T15:04:05Z"),
+			UpdatedAt:   f.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 		})
 	}
 
@@ -233,17 +233,36 @@ func GetCustomerSalesDetailHandler(c *fiber.Ctx) error {
 	// return c.Status(fiber.StatusCreated).JSON(response)
 }
 
-// FindSalesOrderDetails handles GET /spic_to_erp/customers/:coopId/salesorders/:salesordersid
+// FindSalesOrderDetails handles GET /spic_to_erp/customers/:coopId/salesorders/:orderId
 // @Summary      Get salesorder details
 // @Description  Get a paginated list of SalesOrder details for a specific cooperative
 // @Tags         salesorders
 // @Accept       json
 // @Produce      json
 // @Param        coopId path      string  true   " "
-// @Param        salesordersid path      string  true   " "
+// @Param        orderId path      string  true   " "
 // @Success      200    {object}  sales.SalesOrderAmountResponse
-// @Router       /spic_to_erp/customers/{coopId}/salesorders/{salesordersid} [get]
+// @Router       /spic_to_erp/customers/{coopId}/salesorders/{orderId} [get]
 func GetCustomerSalesOrderDetailsHandler(c *fiber.Ctx) error {
+	// coopId := c.Params("coopId")
+	var SalesOrderAmount []sales.SalesOrder
+
+	var data []sales.SalesOrderAmountResponse
+	for _, f := range SalesOrderAmount {
+		data = append(data, sales.SalesOrderAmountResponse{
+			Message:             "Sales order amount calculated successfully",
+			TempERPSalesOrderId: f.TempID,
+			ErpSalesOrderId:     "TEMP-SO-001",
+			ErpSalesOrderCode:   "SO2026-001",
+			SpicSalesOrderId:    "SPIC-SO-7788",
+			CreatedAt:           f.CreatedAt.Format("2006-01-02T15:04:05Z"),
+			UpdatedAt:           f.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+			OrderValue:          12500.50,
+			TaxAmount:           2250.09,
+			TotalAmount:         14750.59,
+		})
+	}
+
 	// Implementation for retrieving sales order details
 	response := sales.SalesOrderAmountResponse{
 		Message:             "Sales order amount calculated successfully",
@@ -251,8 +270,8 @@ func GetCustomerSalesOrderDetailsHandler(c *fiber.Ctx) error {
 		ErpSalesOrderId:     "ERP-SO-10001",
 		ErpSalesOrderCode:   "SO2026-001",
 		SpicSalesOrderId:    "SPIC-SO-7788",
-		CreatedAt:           time.Now().UTC().Format(time.RFC3339),
-		UpdatedAt:           time.Now().UTC().Format(time.RFC3339),
+		CreatedAt:           time.Now().UTC().Format("2006-01-02T15:04:05Z"),
+		UpdatedAt:           time.Now().UTC().Format("2006-01-02T15:04:05Z"),
 		OrderValue:          12500.50,
 		TaxAmount:           2250.09,
 		TotalAmount:         14750.59,
