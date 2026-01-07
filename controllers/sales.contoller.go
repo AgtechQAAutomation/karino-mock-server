@@ -27,7 +27,7 @@ import (
 // CreateCustomerSalesDetailHandler handles POST /spic_to_erp/customers/:coopId/salesorders
 // @Summary      Create a new sales order detail
 // @Description  Create a new record in the sales orders table
-// @Tags         customers
+// @Tags         salesoreder
 // @Accept       json
 // @Produce      json
 // @Param        coopId  path      string                            true  "Cooperative ID"
@@ -168,7 +168,7 @@ func CreateCustomerSalesOrderHandler(c *fiber.Ctx) error {
 // GetCustomerSalesDetailHandler handles GET /spic_to_erp/customers/:coopId/salesorders
 // @Summary      List salesorder updated within date ranges
 // @Description  Get a paginated list of farmer details for a specific cooperative
-// @Tags         customers
+// @Tags         salesoreder
 // @Accept       json
 // @Produce      json
 // @Param        coopId path      string  true   " "
@@ -237,7 +237,7 @@ func GetCustomerSalesDetailHandler(c *fiber.Ctx) error {
 // FindSalesOrderDetails handles GET /spic_to_erp/customers/:coopId/salesorders/:salesordersid
 // @Summary      Get salesorder details
 // @Description  Get a paginated list of SalesOrder details for a specific cooperative
-// @Tags         customers
+// @Tags         salesoreder
 // @Accept       json
 // @Produce      json
 // @Param        coopId path      string  true   " "
