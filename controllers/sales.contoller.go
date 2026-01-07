@@ -16,6 +16,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/shyamsundaar/karino-mock-server/initializers"
 	"github.com/shyamsundaar/karino-mock-server/models/sales"
+
 	// "github.com/google/uuid"
 	// "github.com/shyamsundaar/karino-mock-server/models/farmers"
 	// "karino-mock-server/query"
@@ -26,7 +27,7 @@ import (
 // CreateCustomerSalesDetailHandler handles POST /spic_to_erp/customers/:coopId/salesorders
 // @Summary      Create a new sales order detail
 // @Description  Create a new record in the sales orders table
-// @Tags         salesorders
+// @Tags         salesoreder
 // @Accept       json
 // @Produce      json
 // @Param        coopId  path      string                            true  "Cooperative ID"
@@ -64,41 +65,41 @@ func CreateCustomerSalesOrderHandler(c *fiber.Ctx) error {
 	// 4. Map payload → SalesOrder DB model
 	newOrder := sales.SalesOrder{
 		// TempID:                 TempID,
-		CoopID:                 coopId,
+		CoopID: coopId,
 
-		OrderID:                payload.OrderID,
-		OrderNumber:            payload.OrderNumber,
-		ContractID:             payload.ContractID,
+		OrderID:     payload.OrderID,
+		OrderNumber: payload.OrderNumber,
+		ContractID:  payload.ContractID,
 
-		FarmerID:               payload.FarmerID,
-		FarmerName:             payload.FarmerName,
+		FarmerID:   payload.FarmerID,
+		FarmerName: payload.FarmerName,
 
-		ClubID:                 payload.ClubID,
-		ClubName:               payload.ClubName,
+		ClubID:   payload.ClubID,
+		ClubName: payload.ClubName,
 
 		FarmerResourceCategory: payload.FarmerResourceCategory,
 		ContractCrop:           payload.ContractCrop,
 		ContractCropVareity:    payload.ContractCropVareity,
 		ContractArea:           payload.ContractArea,
 
-		SponsorID:              payload.SponsorID,
-		SponsorName:            payload.SponsorName,
+		SponsorID:   payload.SponsorID,
+		SponsorName: payload.SponsorName,
 
-		BuyerID:                payload.BuyerID,
-		BuyerName:              payload.BuyerName,
+		BuyerID:   payload.BuyerID,
+		BuyerName: payload.BuyerName,
 
-		PackageSetCaptionPT:    payload.PackageSetCaptionPT,
+		PackageSetCaptionPT: payload.PackageSetCaptionPT,
 
-		RegionID:               payload.RegionID,
-		RegionPartID:           payload.RegionPartID,
-		SettlementID:           payload.SettlementID,
-		SettlementPartID:       payload.SettlementPartID,
+		RegionID:         payload.RegionID,
+		RegionPartID:     payload.RegionPartID,
+		SettlementID:     payload.SettlementID,
+		SettlementPartID: payload.SettlementPartID,
 
-		CustomZone1ID:          payload.CustomZone1ID,
-		CustomZone2ID:          payload.CustomZone2ID,
+		CustomZone1ID: payload.CustomZone1ID,
+		CustomZone2ID: payload.CustomZone2ID,
 
-		PickupDate:             payload.PickupDate,
-		CreatedBy:              payload.CreatedBy,
+		PickupDate: payload.PickupDate,
+		CreatedBy:  payload.CreatedBy,
 	}
 
 	// 5. DB transaction (parent + children)
@@ -167,7 +168,7 @@ func CreateCustomerSalesOrderHandler(c *fiber.Ctx) error {
 // GetCustomerSalesDetailHandler handles GET /spic_to_erp/customers/:coopId/salesorders
 // @Summary      List salesorder updated within date ranges
 // @Description  Get a paginated list of farmer details for a specific cooperative
-// @Tags         salesorders
+// @Tags         salesoreder
 // @Accept       json
 // @Produce      json
 // @Param        coopId path      string  true   " "
@@ -236,7 +237,7 @@ func GetCustomerSalesDetailHandler(c *fiber.Ctx) error {
 // FindSalesOrderDetails handles GET /spic_to_erp/customers/:coopId/salesorders/:orderId
 // @Summary      Get salesorder details
 // @Description  Get a paginated list of SalesOrder details for a specific cooperative
-// @Tags         salesorders
+// @Tags         salesoreder
 // @Accept       json
 // @Produce      json
 // @Param        coopId path      string  true   " "
