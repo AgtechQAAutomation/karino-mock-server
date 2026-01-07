@@ -1,0 +1,301 @@
+func SendCustomerSalesErrorResponse(c *fiber.Ctx, msg string, farmerId string) error {
+	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
+	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+		"success": false,
+		"data": fiber.Map{
+			"tempERPCustomerId": "0",
+			"erpCustomerId":     "",
+			"farmerId":          farmerId,
+			"createdAt":         now,
+			"updatedAt":         now,
+			"Message":           msg,
+		},
+	})
+}
+
+// FindSalesDetails handles GET /spic_to_erp/customers/:coopId/salesorders
+// @Summary      List sales order details
+// @Description  Get a paginated list of sales order details for a specific cooperative
+// @Tags         salesorders
+// @Accept       json
+// @Produce      json
+// @Param        coopId path      string  true   " "
+// @Param        updatedFrom   query     string  false  " "
+// @Param        updatedTo     query     string  false  " "
+// @Param        page          query     int     false  "Page number"    default(1)
+// @Param        limit         query     int     false  "Items per page" default(10)
+// @Success      200    {object}  models.ListFarmersResponse
+// @Router       /spic_to_erp/customers/{coopId}/salesorders [get]
+func FindCustomerSalesDetailsHandler(c *fiber.Ctx) error {
+	coopId := c.Params("coopId")
+
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+	offset := (page - 1) * limit
+
+	var farmers []models.FarmerDetails
+	var totalRecords int64
+
+	query := initializers.DB.
+		Model(&models.FarmerDetails{}).
+		Where("coop_id = ?", coopId)
+
+	query.Count(&totalRecords)
+
+	if err := query.
+		Limit(limit).
+		Offset(offset).
+		Find(&farmers).Error; err != nil {
+
+		return c.Status(fiber.StatusBadGateway).JSON(models.ErrorFarmerResponse{
+			Success: false,
+			Message: err.Error(),
+		})
+	}
+
+	totalPages := int(math.Ceil(float64(totalRecords) / float64(limit)))
+
+	// ✅ Map DB → RESPONSE MODEL
+	var data []models.FarmerResponse
+	for _, f := range farmers {
+		data = append(data, models.FarmerResponse{
+			ErpCustomerId:     f.CustomerID,
+			TempERPCustomerID: f.TempID,
+			ErpVendorId:       f.VendorID,
+			// TempErpVendorId:   f.TempVendorID, // if exists
+			FarmerId:  f.FarmerID,
+			CreatedAt: f.CreatedAt.Format("2006-01-02T15:04:05Z"),
+			UpdatedAt: f.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(models.ListFarmersResponse{
+		Data: data,
+		Pagination: models.PaginationInfo{
+			Page:        page,
+			Limit:       limit,
+			TotalItems:  int(totalRecords),
+			TotalPages:  totalPages,
+			HasPrevious: page > 1,
+			HasNext:     page < totalPages,
+		},
+	})
+}
+
+// FindDetails handles GET /spic_to_erp/customers/:coopId/salesorders/:salesordersid
+// @Summary      List farmer details
+// @Description  Get a paginated list of farmer details for a specific cooperative
+// @Tags         salesorders
+// @Accept       json
+// @Produce      json
+// @Param        coopId path      string  true   " "
+// @Param        salesordersid path      string  true   " "
+// @Success      200    {object}  models.FarmerDetailResponse
+// @Router       /spic_to_erp/customers/{coopId}/salesorders/{salesordersid} [get]
+func GetCustomerSalesDetailHandler(c *fiber.Ctx) error {
+	coopId := c.Params("coopId")
+	farmerId := c.Params("farmerId")
+
+	if !isCoopAllowed(coopId) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"Message": "The indicated cooperative does not exist."})
+	}
+	var farmer models.FarmerDetails
+	err := initializers.DB.
+		Where("coop_id = ? AND farmer_id = ?", coopId, farmerId).
+		First(&farmer).Error
+
+	if err != nil {
+		response := models.FarmerDetailResponse{
+			FarmerID:           farmerId,
+			Name:               "",
+			MobileNumber:       "",
+			Cooperative:        coopId,
+			SettlementID:       0,
+			SettlementPartID:   0,
+			ZipCode:            "",
+			FarmerKycTypeID:    0,
+			FarmerKycType:      "",
+			FarmerKycID:        "",
+			ClubID:             "",
+			ClubLeaderFarmerID: "",
+			Message:            "",
+			EntityID:           "", // or permanent entity ID
+			CustomerCode:       "",
+			VendorCode:         "",
+			CreatedDate:        "1900-01-01T00:00:00",
+			UpdatedDate:        "1900-01-01T00:00:00",
+			BankDetails: models.BankDetailsInfo{
+				IBAN:  "", // ensure field exists
+				SWIFT: "", // ensure field exists
+			},
+		}
+		return c.Status(fiber.StatusOK).JSON(response)
+	}
+
+	response := models.FarmerDetailResponse{
+		FarmerID:           farmer.FarmerID,
+		Name:               farmer.FirstName + " " + farmer.LastName,
+		MobileNumber:       farmer.MobileNumber,
+		Cooperative:        farmer.CoopID,
+		SettlementID:       farmer.SettlementID,
+		SettlementPartID:   farmer.SettlementPartID,
+		ZipCode:            farmer.ZipCode,
+		FarmerKycTypeID:    farmer.FarmerKycTypeID,
+		FarmerKycType:      farmer.FarmerKycType,
+		FarmerKycID:        farmer.FarmerKycID,
+		ClubID:             farmer.ClubID,
+		ClubLeaderFarmerID: farmer.ClubLeaderFarmerID,
+		Message:            "Farmer detail fetched successfully",
+		EntityID:           farmer.TempID, // or permanent entity ID
+		CustomerCode:       farmer.CustomerID,
+		VendorCode:         farmer.VendorID,
+		CreatedDate:        farmer.CreatedAt.Format("2006-01-02T15:04:05Z"),
+		UpdatedDate:        farmer.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+		BankDetails: models.BankDetailsInfo{
+			IBAN:  "", // ensure field exists
+			SWIFT: "", // ensure field exists
+		},
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response)
+}
+
+
+
+
+// func CreateCustomerSalesDetailHandler(c *fiber.Ctx) error {
+// 	coopId := c.Params("coopId")
+
+// 	// 1. Parse request
+// 	var payload sales.SalesOrder
+// 	if err := c.BodyParser(&payload); err != nil {
+// 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+// 			"status":  "fail",
+// 			"message": err.Error(),
+// 		})
+// 	}
+
+// 	// 2. IMPORTANT: set FK on each order item
+// 	for i := range payload.OrderItems {
+// 		payload.OrderItems[i].OrderID = payload.OrderID
+// 	}
+
+// 	// 3. Map payload → DB model
+// 	newDetail := sales.SalesOrder{
+// 		OrderID:                payload.OrderID,
+// 		OrderNumber:            payload.OrderNumber,
+// 		ContractID:             payload.ContractID,
+// 		FarmerID:               payload.FarmerID,
+// 		FarmerName:             payload.FarmerName,
+// 		ClubID:                 coopId,
+// 		ClubName:               payload.ClubName,
+// 		FarmerResourceCategory: payload.FarmerResourceCategory,
+// 		ContractCrop:           payload.ContractCrop,
+// 		ContractCropVareity:    payload.ContractCropVareity,
+// 		ContractArea:           payload.ContractArea,
+// 		SponsorID:              payload.SponsorID,
+// 		SponsorName:            payload.SponsorName,
+// 		BuyerID:                payload.BuyerID,
+// 		BuyerName:              payload.BuyerName,
+// 		PackageSetCaptionPT:    payload.PackageSetCaptionPT,
+// 		RegionID:               payload.RegionID,
+// 		RegionPartID:           payload.RegionPartID,
+// 		SettlementID:           payload.SettlementID,
+// 		SettlementPartID:       payload.SettlementPartID,
+// 		CustomZone1ID:          payload.CustomZone1ID,
+// 		CustomZone2ID:          payload.CustomZone2ID,
+// 		PickupDate:             payload.PickupDate,
+// 		CreatedBy:              payload.CreatedBy,
+// 		OrderItems:             payload.OrderItems,
+// 	}
+
+// 	// 4. Save using TRANSACTION (best practice)
+// 	if err := initializers.DB.Transaction(func(tx *gorm.DB) error {
+// 		return tx.Create(&newDetail).Error
+// 	}); err != nil {
+// 		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{
+// 			"status":  "error",
+// 			"message": err.Error(),
+// 		})
+// 	}
+
+// 	// 5. Response
+// 	response := sales.CreateSalesOrderResponse{
+// 		Success: true,
+// 		Data: sales.CreateSalesOrderResponseData{
+// 			TempERPSalesOrderId: "TEMP-SO-001",
+// 			ErpSalesOrderId:     payload.OrderID,
+// 			ErpSalesOrderCode:   payload.OrderNumber,
+// 			SpicSalesOrderId:    payload.OrderID,
+// 			CreatedAt:           time.Now().UTC().Format("2006-01-02T15:04:05Z"),
+// 			UpdatedAt:           time.Now().UTC().Format("2006-01-02T15:04:05Z"),
+// 			Message:             "Sales order created successfully",
+// 		},
+// 	}
+
+// 	return c.Status(fiber.StatusCreated).JSON(response)
+// }
+
+
+
+07/01/2026
+func PostCustomerSalesOrdersHandler(c *fiber.Ctx) error {
+	coopId := c.Params("coopId")
+	var orders []sales.SalesOrder
+
+	page, _ := strconv.Atoi(c.Query("page", "1"))
+	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+	offset := (page - 1) * limit
+
+	var totalRecords int64
+
+	// Base query
+	query := initializers.DB.
+		Model(&sales.SalesOrder{}).
+		Where("club_id = ?", coopId)
+
+	// Count total records
+	query.Count(&totalRecords)
+
+	// Fetch paginated data
+	if err := query.
+		Limit(limit).
+		Offset(offset).
+		Preload("OrderItems"). // optional (only if needed)
+		Find(&orders).Error; err != nil {
+
+		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{
+			"success": false,
+			"message": err.Error(),
+		})
+	}
+
+	// totalPages := int(math.Ceil(float64(totalRecords) / float64(limit)))
+
+	// Map DB → RESPONSE DTO
+	var data []sales.SalesOrderListResponse
+	for _, o := range orders {
+		data = append(data, sales.SalesOrderListResponse{
+			OrderID:     o.OrderID,
+			OrderNumber: o.OrderNumber,
+			FarmerID:    o.FarmerID,
+			FarmerName:  o.FarmerName,
+			ClubID:      o.ClubID,
+			ClubName:    o.ClubName,
+			CreatedAt:   o.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:   o.UpdatedAt.Format(time.RFC3339),
+		})
+	}
+
+	return c.Status(fiber.StatusOK).JSON(sales.ListSalesOrderResponse{
+		Data: data,
+		// Pagination: sales.PaginationInfo{
+		// 	Page:        page,
+		// 	Limit:       limit,
+		// 	TotalItems:  int(totalRecords),
+		// 	TotalPages:  totalPages,
+		// 	HasPrevious: page > 1,
+		// 	HasNext:     page < totalPages,
+		// },
+	})
+}
