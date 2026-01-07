@@ -248,6 +248,8 @@ func CreateCustomerDetailHandler(c *fiber.Ctx) error {
 		ClubID:                      payload.ClubID,
 		ClubName:                    payload.ClubName,
 		ClubLeaderFarmerID:          payload.ClubLeaderFarmerID,
+		RaithuCreatedDate:           payload.RaithuCreatedDate,
+		RaithuUpdatedAt:             payload.RaithuUpdatedAt,
 	}
 
 	// 5. Save to Database (GORM fills in CreatedAt/UpdatedAt here)
@@ -332,20 +334,23 @@ func FindCustomerDetailsHandler(c *fiber.Ctx) error {
 		Model(&models.FarmerDetails{}).
 		Where("coop_id = ? AND customer_id IS NOT NULL AND customer_id != '' ", coopId)
 
-	if updatedFrom != "" {
+	if updatedFrom != "" && updatedTo != "" {
+
 		fromTime, err := time.Parse(time.RFC3339, updatedFrom)
 		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Invalid updatedFrom format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)"})
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"message": "Invalid updatedFrom format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)",
+			})
 		}
-		query = query.Where("updated_at >= ?", fromTime)
-	}
 
-	if updatedTo != "" {
 		toTime, err := time.Parse(time.RFC3339, updatedTo)
 		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Invalid updatedTo format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)"})
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"message": "Invalid updatedTo format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)",
+			})
 		}
-		query = query.Where("updated_at <= ?", toTime)
+
+		query = query.Where("updated_at>= ? AND updated_at<= ? ", fromTime, toTime)
 	}
 	query.Count(&totalRecords)
 
@@ -491,6 +496,8 @@ func CreateVendorDetailHandler(c *fiber.Ctx) error {
 		ClubID:                      payload.ClubID,
 		ClubName:                    payload.ClubName,
 		ClubLeaderFarmerID:          payload.ClubLeaderFarmerID,
+		RaithuCreatedDate:           payload.RaithuCreatedDate,
+		RaithuUpdatedAt:             payload.RaithuUpdatedAt,
 	}
 
 	// 5. Save to Database (GORM fills in CreatedAt/UpdatedAt here)
@@ -562,20 +569,23 @@ func FindVendorDetailsHandler(c *fiber.Ctx) error {
 		Model(&models.FarmerDetails{}).
 		Where("coop_id = ? AND vendor_id IS NOT NULL AND vendor_id != ''", coopId)
 
-	if updatedFrom != "" {
+	if updatedFrom != "" && updatedTo != "" {
+
 		fromTime, err := time.Parse(time.RFC3339, updatedFrom)
 		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Invalid updatedFrom format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)"})
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"message": "Invalid updatedFrom format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)",
+			})
 		}
-		query = query.Where("updated_at >= ?", fromTime)
-	}
 
-	if updatedTo != "" {
 		toTime, err := time.Parse(time.RFC3339, updatedTo)
 		if err != nil {
-			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"message": "Invalid updatedTo format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)"})
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"message": "Invalid updatedTo format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)",
+			})
 		}
-		query = query.Where("updated_at <= ?", toTime)
+
+		query = query.Where("updated_at>= ? AND updated_at<= ? ", fromTime, toTime)
 	}
 
 	query.Count(&totalRecords)
