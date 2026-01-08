@@ -5,6 +5,7 @@ import (
 
 	// "github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
+	
 	"gorm.io/gorm"
 )
 
@@ -19,10 +20,13 @@ type SalesOrder struct {
 	TempID string `gorm:"column:temp_id;not null" json:"tempId"`
 	CoopID string `gorm:"column:coop_id;not null" json:"coopId"`
 
+	ErpSalesOrderId string `gorm:"column:erp_sales_order_id;size:64" json:"erp_sales_order_id"`
+	ErpSalesOrderCode string `gorm:"column:erp_sales_order_code;size:64" json:"erp_sales_order_code"`
+
 	OrderID     string `gorm:"column:order_id;size:64;uniqueIndex" json:"order_id"`
 	OrderNumber string `gorm:"column:order_number;size:64" json:"order_number"`
 	ContractID  string `gorm:"column:contract_id;size:64" json:"contract_id"`
-
+	
 	FarmerID   string `gorm:"column:farmer_id;size:64" json:"farmer_id"`
 	FarmerName string `gorm:"column:farmer_name;size:128" json:"farmer_name"`
 
@@ -57,6 +61,7 @@ type SalesOrder struct {
 	CreatedAt *time.Time `gorm:"default:null"`
 	UpdatedAt *time.Time `gorm:"default:null"`
 
+	NoofOrderItems int `gorm:"column:noof_order_items" json:"noofOrderItems"`
 	OrderItems []SalesOrderItem `gorm:"foreignKey:OrderID;references:OrderID" json:"order_items"`
 }
 

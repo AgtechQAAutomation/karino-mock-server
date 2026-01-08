@@ -5,10 +5,10 @@ import (
 	"strconv"
 
 	// "strings"
-	// "fmt"
-	// "regexp"
-	// "context"
-	// "log"
+	"fmt"
+	"regexp"
+	"context"
+	"log"
 	"time"
 
 	// "database/sql"
@@ -21,9 +21,128 @@ import (
 	// "github.com/google/uuid"
 	// "github.com/shyamsundaar/karino-mock-server/models/farmers"
 	// "karino-mock-server/query"
-	// "github.com/shyamsundaar/karino-mock-server/query"
+	"github.com/shyamsundaar/karino-mock-server/query"
 	"gorm.io/gorm"
 )
+
+func GenerateAndSetNextErpSalesOrderIDGen(
+	ctx context.Context,
+	q *query.Query,
+	salesOrderID uint,
+) (string, error) {
+
+	so := q.SalesOrder.WithContext(ctx)
+
+	// 1. Fetch current sales order row
+	row, err := so.
+		Where(q.SalesOrder.ID.Eq(salesOrderID)).
+		First()
+	if err != nil {
+		return "", err
+	}
+
+	// 2. If already generated → return
+	if row.ErpSalesOrderId != "" {
+		return row.ErpSalesOrderId, nil
+	}
+
+	// 3. Fetch last non-empty ERP sales order ID
+	last, err := so.
+		Where(q.SalesOrder.ErpSalesOrderId.Neq("")).
+		Order(q.SalesOrder.ID.Desc()).
+		First()
+
+	next := 1
+	if err == nil && last.ErpSalesOrderId != "" {
+		re := regexp.MustCompile(`\d+$`)
+		if m := re.FindString(last.ErpSalesOrderId); m != "" {
+			n, _ := strconv.Atoi(m)
+			next = n + 1
+		}
+	}
+
+	// 4. Generate new ERP Sales Order ID
+	newErpSalesOrderID := fmt.Sprintf("ERP-SO-%05d", next)
+
+	// 5. Business delay
+	time.Sleep(time.Duration(initializers.AppConfig.TimeSeconds) * time.Second)
+
+	// 6. Update ONLY if still empty (race-condition safe)
+	_, err = so.
+		Where(
+			q.SalesOrder.ID.Eq(salesOrderID),
+			q.SalesOrder.ErpSalesOrderId.Eq(""),
+		).
+		UpdateColumnSimple(
+			q.SalesOrder.ErpSalesOrderId.Value(newErpSalesOrderID),
+			q.SalesOrder.UpdatedAt.Value(time.Now()),
+		)
+
+	if err != nil {
+		return "", err
+	}
+
+	return newErpSalesOrderID, nil
+}
+
+func GenerateAndSetNextErpSalesOrderCodeGen(
+	ctx context.Context,
+	q *query.Query,
+	ErpSalesOrderCode uint,
+) (string, error) {
+
+	so := q.SalesOrder.WithContext(ctx)
+
+	// 1. Fetch current sales order row
+	row, err := so.
+		Where(q.SalesOrder.ID.Eq(ErpSalesOrderCode)).
+		First()
+	if err != nil {
+		return "", err
+	}
+
+	// 2. If already generated → return
+	if row.ErpSalesOrderCode != "" {
+		return row.ErpSalesOrderCode, nil
+	}
+	
+	next := 1
+
+	last, err := so.
+		Where(q.SalesOrder.ErpSalesOrderCode.Neq("")).
+		Order(q.SalesOrder.ID.Desc()).
+		First()
+
+	if err == nil && last.ErpSalesOrderCode != "" {
+		re := regexp.MustCompile(`\d+$`)
+		if m := re.FindString(last.ErpSalesOrderCode); m != "" {
+			n, _ := strconv.Atoi(m)
+			next = n + 1
+		}
+	}
+
+	newErpSalesOrderCode := fmt.Sprintf("ECL 2025/%d", next)
+
+	// 5. Business delay
+	time.Sleep(time.Duration(initializers.AppConfig.TimeSeconds) * time.Second)
+
+	// 6. Update ONLY if still empty (race-condition safe)
+	_, err = so.
+		Where(
+			q.SalesOrder.ID.Eq(ErpSalesOrderCode),
+			q.SalesOrder.ErpSalesOrderCode.Eq(""),
+		).
+		UpdateColumnSimple(
+			q.SalesOrder.ErpSalesOrderCode.Value(newErpSalesOrderCode),
+			q.SalesOrder.UpdatedAt.Value(time.Now()),
+		)
+
+	if err != nil {
+		return "", err
+	}
+
+	return newErpSalesOrderCode, nil
+}
 
 // CreateCustomerSalesDetailHandler handles POST /spic_to_erp/customers/:coopId/salesorders
 // @Summary      Create a new sales order detail
@@ -133,6 +252,8 @@ func CreateCustomerSalesOrderHandler(c *fiber.Ctx) error {
 
 		PickupDate: payload.PickupDate,
 		CreatedBy:  payload.CreatedBy,
+
+		NoofOrderItems: len(payload.OrderItems),
 	}
 
 	// 5. DB transaction (parent + children)
@@ -180,6 +301,19 @@ func CreateCustomerSalesOrderHandler(c *fiber.Ctx) error {
 			Message: err.Error(),
 		})
 	}
+	ctx := context.Background()
+	q := query.Use(initializers.DB)
+
+	go func(orderDBID uint) {
+		_, err := GenerateAndSetNextErpSalesOrderIDGen(ctx, q, orderDBID)
+		_, err1 := GenerateAndSetNextErpSalesOrderCodeGen(ctx, q, orderDBID)
+		if err1 != nil {
+			log.Println("❌ ERP SalesOrder Code generation failed:", err1)
+		}
+		if err != nil {
+			log.Println("❌ ERP SalesOrder ID generation failed:", err)
+		}
+	}(newOrder.ID)
 
 	// 6. Response DTO (exactly as you defined)
 	response := sales.CreateSalesOrderResponse{
