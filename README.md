@@ -2,8 +2,6 @@
 
 Follow these steps to install Swagger tooling, set your PATH, generate Swagger docs, and create the `query` folder used by GORM's codegen.
 
-**Install Docker desktop - https://www.docker.com/products/docker-desktop/**
-
 1. Start services with Docker Compose (if not already running):
 
 ```bash
@@ -16,7 +14,6 @@ docker compose up -d
 go install github.com/swaggo/swag/cmd/swag@latest
 ```
 
-**Only do if you not used "go" before**
 3. Check your `GOPATH` (to confirm where Go installs binaries):
 
 ```bash
@@ -47,26 +44,39 @@ source ~/.zshrc
 swag --version
 ```
 
-8. Install GORM's CLI to create the `query` folder with in-built functions:
+8. Generate Swagger docs from the code (runs `swag init` in project root):
+
+```bash
+swag init
+```
+
+
+9. Install GORM's CLI to create the `query` folder with in-built functions:
 
 ```bash
 go install gorm.io/cli/gorm@latest
 ```
 
-9. Install or tidy module dependencies (recommended after adding or installing modules):
+10. Install or tidy module dependencies (recommended after adding or installing modules):
 
 ```bash
 go mod tidy
 ```
 
-10. Finally, run the server:
+11. Run the generator to create/query scaffolding (run this first to generate `query`):
 
 ```bash
-./dev.sh
+go run cmd/generate/main.go
 ```
 
-11. Open Swagger UI in your browser:
+12. Finally, run the server:
+
+```bash
+go run main.go
+```
+
+13. Open Swagger UI in your browser:
 
 ```text
-Open http://localhost:8001/swagger/index.html
+Open http://localhost:8000/swagger/index.html
 ```

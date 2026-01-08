@@ -10,8 +10,6 @@ import (
 	"strings"
 	"time"
 
-	// "database/sql"
-
 	"github.com/gofiber/fiber/v2"
 	"github.com/shyamsundaar/karino-mock-server/initializers"
 	models "github.com/shyamsundaar/karino-mock-server/models/farmers"
@@ -160,19 +158,67 @@ func GenerateAndSetNextVendorIDGen(
 // @Success      201     {object}  models.CreateSuccessFarmerResponse
 // @Router       /spic_to_erp/customers/{coopId}/farmers [post]
 func CreateCustomerDetailHandler(c *fiber.Ctx) error {
-	// 1. Get CoopID from URL Parameter
 	coopId := c.Params("coopId")
+
 	var payload *models.CreateDetailSchema
 	var existingFarmer models.FarmerDetails
+	var globalFarmer models.FarmerDetails
 
-	// 2. Parse the JSON Body
+	// ----------------------------------------------------
+	// 1. Parse request body
+	// ----------------------------------------------------
 	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "fail", "message": err.Error()})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "fail",
+			"message": err.Error(),
+		})
 	}
 
-	//3. Constraints for the payload check
+	// ----------------------------------------------------
+	// 2. Farmer exists in SAME coop but customer not created
+	// ----------------------------------------------------
+	err := initializers.DB.
+		Where(
+			"farmer_id = ? AND coop_id = ? AND (customer_id IS NULL OR customer_id = '')",
+			payload.FarmerID,
+			coopId,
+		).
+		First(&existingFarmer).
+		Error
+
+	if err == nil {
+		if existingFarmer.CustomerID == "" {
+			ctx := context.Background()
+			q := query.Use(initializers.DB)
+
+			go func(id uint) {
+				if _, err := GenerateAndSetNextCustomerIDGen(ctx, q, id); err != nil {
+					log.Println("❌ Customer ID generation failed:", err)
+				}
+			}(existingFarmer.ID)
+		}
+
+		return c.Status(fiber.StatusCreated).JSON(
+			models.CreateSuccessFarmerResponse{
+				Success: true,
+				Data: models.FarmerResponse{
+					TempERPCustomerID: existingFarmer.TempID,
+					ErpCustomerId:     existingFarmer.CustomerID,
+					ErpVendorId:       existingFarmer.VendorID,
+					FarmerId:          existingFarmer.FarmerID,
+					CreatedAt:         existingFarmer.CreatedAt.Format(time.RFC3339),
+					UpdatedAt:         existingFarmer.UpdatedAt.Format(time.RFC3339),
+					Message:           "Farmer detail created successfully",
+				},
+			},
+		)
+	}
+
+	// ----------------------------------------------------
+	// 3. BASIC VALIDATIONS
+	// ----------------------------------------------------
 	if payload.FarmerID == "" {
-		return SendCustomerErrorResponse(c, "You must provide a Farmer ID.", payload.FarmerID)
+		return SendCustomerErrorResponse(c, "You must provide a Farmer ID.", "")
 	}
 
 	if payload.FirstName == "" || payload.LastName == "" {
@@ -180,26 +226,66 @@ func CreateCustomerDetailHandler(c *fiber.Ctx) error {
 	}
 
 	if payload.FarmerKycID == "" && payload.ClubLeaderFarmerID == "" {
-		return SendCustomerErrorResponse(c, "Either farmer_kyc_id or clubLeaderFarmerId must be provided.", payload.FarmerID)
-	}
-
-	kycId := initializers.DB.Where("farmer_kyc_id = ?", payload.FarmerKycID).First(&existingFarmer).Error
-	if kycId == nil {
-		return SendCustomerErrorResponse(c, "Farmer with the given KYC ID "+payload.FarmerKycID+" already exists.", payload.FarmerID)
+		return SendCustomerErrorResponse(
+			c,
+			"Either farmer_kyc_id or clubLeaderFarmerId must be provided.",
+			payload.FarmerID,
+		)
 	}
 
 	if !isCoopAllowed(coopId) {
 		return SendCustomerErrorResponse(c, "The indicated cooperative does not exist.", payload.FarmerID)
 	}
 
-	farmerId := initializers.DB.Where("farmer_id = ? AND coop_id = ?", payload.FarmerID, coopId).First(&existingFarmer).Error
-	if farmerId == nil {
-		return SendCustomerErrorResponse(c, "The Farmer ID "+payload.FarmerID+" is already registered in the cooperative "+coopId+".", payload.FarmerID)
+	// ----------------------------------------------------
+	// 4. CHECK IF FARMER EXISTS GLOBALLY
+	// ----------------------------------------------------
+	farmerExistsGlobally := initializers.DB.
+		Where("farmer_id = ?", payload.FarmerID).
+		First(&globalFarmer).
+		Error == nil
+
+	// ----------------------------------------------------
+	// 5. KYC UNIQUENESS → ONLY IF FARMER IS NEW
+	// ----------------------------------------------------
+	if !farmerExistsGlobally && payload.FarmerKycID != "" {
+		var kycFarmer models.FarmerDetails
+
+		err := initializers.DB.
+			Where("farmer_kyc_id = ?", payload.FarmerKycID).
+			First(&kycFarmer).
+			Error
+
+		if err == nil {
+			return SendCustomerErrorResponse(
+				c,
+				"Farmer with the given KYC ID "+payload.FarmerKycID+" already exists.",
+				payload.FarmerID,
+			)
+		}
 	}
 
-	// 4. Map everything to the DB Model
+	// ----------------------------------------------------
+	// 6. BLOCK SAME FARMER IN SAME COOP
+	// ----------------------------------------------------
+	err = initializers.DB.
+		Where("farmer_id = ? AND coop_id = ?", payload.FarmerID, coopId).
+		First(&existingFarmer).
+		Error
+
+	if err == nil {
+		return SendCustomerErrorResponse(
+			c,
+			"The Farmer ID "+payload.FarmerID+" is already registered in the cooperative "+coopId+".",
+			payload.FarmerID,
+		)
+	}
+
+	// ----------------------------------------------------
+	// 7. CREATE NEW FARMER RECORD
+	// ----------------------------------------------------
 	newDetail := models.FarmerDetails{
-		CoopID:                      coopId, // Set from URL Param
+		CoopID:                      coopId,
 		FarmerID:                    payload.FarmerID,
 		FirstName:                   payload.FirstName,
 		LastName:                    payload.LastName,
@@ -217,41 +303,46 @@ func CreateCustomerDetailHandler(c *fiber.Ctx) error {
 		ClubID:                      payload.ClubID,
 		ClubName:                    payload.ClubName,
 		ClubLeaderFarmerID:          payload.ClubLeaderFarmerID,
+		RaithuCreatedDate:           payload.RaithuCreatedDate,
+		RaithuUpdatedAt:             payload.RaithuUpdatedAt,
 	}
 
-	// 5. Save to Database (GORM fills in CreatedAt/UpdatedAt here)
-	result := initializers.DB.Create(&newDetail)
+	if err := initializers.DB.Create(&newDetail).Error; err != nil {
+		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{
+			"status":  "error",
+			"message": err.Error(),
+		})
+	}
+
+	// ----------------------------------------------------
+	// 8. ASYNC CUSTOMER ID GENERATION
+	// ----------------------------------------------------
 	ctx := context.Background()
 	q := query.Use(initializers.DB)
 
 	go func(id uint) {
-		var err error
-
-		_, err = GenerateAndSetNextCustomerIDGen(ctx, q, id)
-		if err != nil {
-			log.Println("❌ Vendor ID gen failed:", err)
+		if _, err := GenerateAndSetNextCustomerIDGen(ctx, q, id); err != nil {
+			log.Println("❌ Customer ID generation failed:", err)
 		}
 	}(newDetail.ID)
 
-	if result.Error != nil {
-		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{"status": "error", "message": result.Error.Error()})
-	}
-
-	response := models.CreateSuccessFarmerResponse{
-		Success: true,
-		Data: models.FarmerResponse{
-			TempERPCustomerID: newDetail.TempID,
-			ErpCustomerId:     newDetail.CustomerID,
-			ErpVendorId:       newDetail.VendorID,
-			FarmerId:          newDetail.FarmerID,
-			CreatedAt:         newDetail.CreatedAt.Format("2006-01-02T15:04:05Z"),
-			UpdatedAt:         newDetail.UpdatedAt.Format("2006-01-02T15:04:05Z"),
-			Message:           "Farmer detail created successfully",
+	// ----------------------------------------------------
+	// 9. RESPONSE
+	// ----------------------------------------------------
+	return c.Status(fiber.StatusCreated).JSON(
+		models.CreateSuccessFarmerResponse{
+			Success: true,
+			Data: models.FarmerResponse{
+				TempERPCustomerID: newDetail.TempID,
+				ErpCustomerId:     newDetail.CustomerID,
+				ErpVendorId:       newDetail.VendorID,
+				FarmerId:          newDetail.FarmerID,
+				CreatedAt:         newDetail.CreatedAt.Format(time.RFC3339),
+				UpdatedAt:         newDetail.UpdatedAt.Format(time.RFC3339),
+				Message:           "Farmer detail created successfully",
+			},
 		},
-	}
-
-	return c.Status(fiber.StatusCreated).JSON(response)
-
+	)
 }
 
 func SendCustomerErrorResponse(c *fiber.Ctx, msg string, farmerId string) error {
@@ -284,9 +375,14 @@ func SendCustomerErrorResponse(c *fiber.Ctx, msg string, farmerId string) error 
 // @Router       /spic_to_erp/customers/{coopId}/farmers [get]
 func FindCustomerDetailsHandler(c *fiber.Ctx) error {
 	coopId := c.Params("coopId")
+	updatedFrom := c.Query("updatedFrom")
+	updatedTo := c.Query("updatedTo")
 
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+	if limit <= 0 {
+		limit = 10
+	}
 	offset := (page - 1) * limit
 
 	var farmers []models.FarmerDetails
@@ -294,8 +390,26 @@ func FindCustomerDetailsHandler(c *fiber.Ctx) error {
 
 	query := initializers.DB.
 		Model(&models.FarmerDetails{}).
-		Where("coop_id = ?", coopId)
+		Where("coop_id = ? AND customer_id IS NOT NULL AND customer_id != '' ", coopId)
 
+	if updatedFrom != "" && updatedTo != "" {
+
+		fromTime, err := time.Parse(time.RFC3339, updatedFrom)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"message": "Invalid updatedFrom format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)",
+			})
+		}
+
+		toTime, err := time.Parse(time.RFC3339, updatedTo)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"message": "Invalid updatedTo format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)",
+			})
+		}
+
+		query = query.Where("updated_at>= ? AND updated_at<= ? ", fromTime, toTime)
+	}
 	query.Count(&totalRecords)
 
 	if err := query.
@@ -312,7 +426,7 @@ func FindCustomerDetailsHandler(c *fiber.Ctx) error {
 	totalPages := int(math.Ceil(float64(totalRecords) / float64(limit)))
 
 	// ✅ Map DB → RESPONSE MODEL
-	var data []models.FarmerResponse
+	data := make([]models.FarmerResponse, 0)
 	for _, f := range farmers {
 		data = append(data, models.FarmerResponse{
 			ErpCustomerId:     f.CustomerID,
@@ -351,44 +465,140 @@ func FindCustomerDetailsHandler(c *fiber.Ctx) error {
 func CreateVendorDetailHandler(c *fiber.Ctx) error {
 	// 1. Get CoopID from URL Parameter
 	coopId := c.Params("coopId")
+
 	var payload *models.CreateDetailSchema
 	var existingFarmer models.FarmerDetails
+	var globalFarmer models.FarmerDetails
 
 	// 2. Parse the JSON Body
 	if err := c.BodyParser(&payload); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"status": "fail", "message": err.Error()})
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "fail",
+			"message": err.Error(),
+		})
 	}
 
-	//3. Constraints for the payload check
+	// ----------------------------------------------------
+	// 3. Farmer exists in SAME coop but vendor not created
+	// ----------------------------------------------------
+	err := initializers.DB.
+		Where(
+			"farmer_id = ? AND coop_id = ? AND (vendor_id IS NULL OR vendor_id = '')",
+			payload.FarmerID,
+			coopId,
+		).
+		First(&existingFarmer).
+		Error
+
+	if err == nil {
+		if existingFarmer.VendorID == "" {
+			ctx := context.Background()
+			q := query.Use(initializers.DB)
+
+			go func(id uint) {
+				if _, err := GenerateAndSetNextVendorIDGen(ctx, q, id); err != nil {
+					log.Println("❌ Vendor ID generation failed:", err)
+				}
+			}(existingFarmer.ID)
+		}
+
+		return c.Status(fiber.StatusCreated).JSON(
+			models.CreateSuccessFarmerResponse{
+				Success: true,
+				Data: models.FarmerResponse{
+					TempERPCustomerID: existingFarmer.TempID,
+					ErpCustomerId:     existingFarmer.CustomerID,
+					ErpVendorId:       existingFarmer.VendorID,
+					FarmerId:          existingFarmer.FarmerID,
+					CreatedAt:         existingFarmer.CreatedAt.Format(time.RFC3339),
+					UpdatedAt:         existingFarmer.UpdatedAt.Format(time.RFC3339),
+					Message:           "Farmer detail created successfully",
+				},
+			},
+		)
+	}
+
+	// ----------------------------------------------------
+	// 4. BASIC VALIDATIONS
+	// ----------------------------------------------------
 	if payload.FarmerID == "" {
-		return SendCustomerErrorResponse(c, "You must provide a Farmer ID.", payload.FarmerID)
+		return SendCustomerErrorResponse(c, "You must provide a Farmer ID.", "")
 	}
 
 	if payload.FirstName == "" || payload.LastName == "" {
-		return SendCustomerErrorResponse(c, "You must provide the first and last name.", payload.FarmerID)
+		return SendCustomerErrorResponse(
+			c,
+			"You must provide the first and last name.",
+			payload.FarmerID,
+		)
 	}
 
 	if payload.FarmerKycID == "" && payload.ClubLeaderFarmerID == "" {
-		return SendCustomerErrorResponse(c, "Either farmer_kyc_id or clubLeaderFarmerId must be provided.", payload.FarmerID)
-	}
-
-	kycId := initializers.DB.Where("farmer_kyc_id = ?", payload.FarmerKycID).First(&existingFarmer).Error
-	if kycId == nil {
-		return SendCustomerErrorResponse(c, "Farmer with the given KYC ID "+payload.FarmerKycID+" already exists.", payload.FarmerID)
+		return SendCustomerErrorResponse(
+			c,
+			"Either farmer_kyc_id or clubLeaderFarmerId must be provided.",
+			payload.FarmerID,
+		)
 	}
 
 	if coopId == "" {
-		return SendCustomerErrorResponse(c, "The indicated cooperative does not exist.", payload.FarmerID)
+		return SendCustomerErrorResponse(
+			c,
+			"The indicated cooperative does not exist.",
+			payload.FarmerID,
+		)
 	}
 
-	farmerId := initializers.DB.Where("farmer_id = ? AND coop_id = ?", payload.FarmerID, coopId).First(&existingFarmer).Error
-	if farmerId == nil {
-		return SendCustomerErrorResponse(c, "The Farmer ID "+payload.FarmerID+" is already registered in the cooperative "+coopId+".", payload.FarmerID)
+	// ----------------------------------------------------
+	// 5. CHECK IF FARMER EXISTS GLOBALLY (ANY COOP)
+	// ----------------------------------------------------
+	farmerExistsGlobally := initializers.DB.
+		Where("farmer_id = ?", payload.FarmerID).
+		First(&globalFarmer).
+		Error == nil
+
+	// ----------------------------------------------------
+	// 6. KYC UNIQUENESS → ONLY IF FARMER IS NEW
+	// ----------------------------------------------------
+	if !farmerExistsGlobally && payload.FarmerKycID != "" {
+		var kycFarmer models.FarmerDetails
+
+		err := initializers.DB.
+			Where("farmer_kyc_id = ?", payload.FarmerKycID).
+			First(&kycFarmer).
+			Error
+
+		if err == nil {
+			return SendCustomerErrorResponse(
+				c,
+				"Farmer with the given KYC ID "+payload.FarmerKycID+" already exists.",
+				payload.FarmerID,
+			)
+		}
 	}
 
-	// 4. Map everything to the DB Model
+	// ----------------------------------------------------
+	// 7. BLOCK SAME FARMER IN SAME COOP
+	// ----------------------------------------------------
+	err = initializers.DB.
+		Where("farmer_id = ? AND coop_id = ?", payload.FarmerID, coopId).
+		First(&existingFarmer).
+		Error
+
+	if err == nil {
+		return SendCustomerErrorResponse(
+			c,
+			"The Farmer ID "+payload.FarmerID+
+				" is already registered in the cooperative "+coopId+".",
+			payload.FarmerID,
+		)
+	}
+
+	// ----------------------------------------------------
+	// 8. CREATE NEW FARMER RECORD
+	// ----------------------------------------------------
 	newDetail := models.FarmerDetails{
-		CoopID:                      coopId, // Set from URL Param
+		CoopID:                      coopId,
 		FarmerID:                    payload.FarmerID,
 		FirstName:                   payload.FirstName,
 		LastName:                    payload.LastName,
@@ -406,43 +616,46 @@ func CreateVendorDetailHandler(c *fiber.Ctx) error {
 		ClubID:                      payload.ClubID,
 		ClubName:                    payload.ClubName,
 		ClubLeaderFarmerID:          payload.ClubLeaderFarmerID,
+		RaithuCreatedDate:           payload.RaithuCreatedDate,
+		RaithuUpdatedAt:             payload.RaithuUpdatedAt,
 	}
 
-	// 5. Save to Database (GORM fills in CreatedAt/UpdatedAt here)
-	result := initializers.DB.Create(&newDetail)
+	if err := initializers.DB.Create(&newDetail).Error; err != nil {
+		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{
+			"status":  "error",
+			"message": err.Error(),
+		})
+	}
+
+	// ----------------------------------------------------
+	// 9. ASYNC VENDOR ID GENERATION
+	// ----------------------------------------------------
 	ctx := context.Background()
 	q := query.Use(initializers.DB)
 
 	go func(id uint) {
-		var err error
-
-		_, err = GenerateAndSetNextVendorIDGen(ctx, q, id)
-		if err != nil {
+		if _, err := GenerateAndSetNextVendorIDGen(ctx, q, id); err != nil {
 			log.Println("❌ Vendor ID gen failed:", err)
 		}
 	}(newDetail.ID)
 
-	if result.Error != nil {
-		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{"status": "error", "message": result.Error.Error()})
-	}
-
-	// Inside CreateCustomerDetailHandler...
-
-	response := models.CreateSuccessFarmerResponse{
-		Success: true,
-		Data: models.FarmerResponse{
-			TempERPCustomerID: newDetail.TempID,
-			ErpCustomerId:     newDetail.CustomerID,
-			ErpVendorId:       newDetail.VendorID,
-			FarmerId:          newDetail.FarmerID,
-			CreatedAt:         newDetail.CreatedAt.Format("2006-01-02T15:04:05Z"),
-			UpdatedAt:         newDetail.UpdatedAt.Format("2006-01-02T15:04:05Z"),
-			Message:           "Farmer detail created successfully",
+	// ----------------------------------------------------
+	// 10. RESPONSE
+	// ----------------------------------------------------
+	return c.Status(fiber.StatusCreated).JSON(
+		models.CreateSuccessFarmerResponse{
+			Success: true,
+			Data: models.FarmerResponse{
+				TempERPCustomerID: newDetail.TempID,
+				ErpCustomerId:     newDetail.CustomerID,
+				ErpVendorId:       newDetail.VendorID,
+				FarmerId:          newDetail.FarmerID,
+				CreatedAt:         newDetail.CreatedAt.Format(time.RFC3339),
+				UpdatedAt:         newDetail.UpdatedAt.Format(time.RFC3339),
+				Message:           "Farmer detail created successfully",
+			},
 		},
-	}
-
-	return c.Status(fiber.StatusCreated).JSON(response)
-
+	)
 }
 
 // FindDetails handles GET /spic_to_erp/vendors/:coopId/farmers
@@ -460,9 +673,14 @@ func CreateVendorDetailHandler(c *fiber.Ctx) error {
 // @Router       /spic_to_erp/vendors/{coopId}/farmers [get]
 func FindVendorDetailsHandler(c *fiber.Ctx) error {
 	coopId := c.Params("coopId")
+	updatedFrom := c.Query("updatedFrom")
+	updatedTo := c.Query("updatedTo")
 
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+	if limit <= 0 {
+		limit = 10
+	}
 	offset := (page - 1) * limit
 
 	var farmers []models.FarmerDetails
@@ -470,7 +688,26 @@ func FindVendorDetailsHandler(c *fiber.Ctx) error {
 
 	query := initializers.DB.
 		Model(&models.FarmerDetails{}).
-		Where("coop_id = ?", coopId)
+		Where("coop_id = ? AND vendor_id IS NOT NULL AND vendor_id != ''", coopId)
+
+	if updatedFrom != "" && updatedTo != "" {
+
+		fromTime, err := time.Parse(time.RFC3339, updatedFrom)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"message": "Invalid updatedFrom format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)",
+			})
+		}
+
+		toTime, err := time.Parse(time.RFC3339, updatedTo)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"message": "Invalid updatedTo format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)",
+			})
+		}
+
+		query = query.Where("updated_at>= ? AND updated_at<= ? ", fromTime, toTime)
+	}
 
 	query.Count(&totalRecords)
 
@@ -488,7 +725,7 @@ func FindVendorDetailsHandler(c *fiber.Ctx) error {
 	totalPages := int(math.Ceil(float64(totalRecords) / float64(limit)))
 
 	// ✅ Map DB → RESPONSE MODEL
-	var data []models.FarmerResponse
+	data := make([]models.FarmerResponse, 0)
 	for _, f := range farmers {
 		data = append(data, models.FarmerResponse{
 			ErpCustomerId:     f.CustomerID,
