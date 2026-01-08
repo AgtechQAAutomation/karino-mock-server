@@ -5,10 +5,10 @@ import (
 	"strconv"
 
 	// "strings"
-	"fmt"
-	"regexp"
 	"context"
+	"fmt"
 	"log"
+	"regexp"
 	"time"
 
 	// "database/sql"
@@ -105,7 +105,7 @@ func GenerateAndSetNextErpSalesOrderCodeGen(
 	if row.ErpSalesOrderCode != "" {
 		return row.ErpSalesOrderCode, nil
 	}
-	
+
 	next := 1
 
 	last, err := so.
@@ -392,14 +392,12 @@ func GetCustomerSalesDetailHandler(c *fiber.Ctx) error {
 	var data []sales.SalesOrderListResponse
 	for _, f := range salesorder {
 		data = append(data, sales.SalesOrderListResponse{
-			OrderID:     f.OrderID,
-			OrderNumber: f.OrderNumber,
-			FarmerID:    f.FarmerID,
-			FarmerName:  f.FarmerName,
-			ClubID:      f.ClubID,
-			ClubName:    f.ClubName,
-			CreatedAt:   f.CreatedAt.Format("2006-01-02T15:04:05Z"),
-			UpdatedAt:   f.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+			TempERPSalesOrderId: f.TempID,
+			ErpSalesOrderId:     f.ErpSalesOrderId,
+			ErpSalesOrderCode:   f.ErpSalesOrderCode,
+			SpicSalesOrderId:    f.OrderID,
+			CreatedAt:           f.CreatedAt.Format("2006-01-02T15:04:05Z"),
+			UpdatedAt:           f.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 		})
 	}
 
