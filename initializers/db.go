@@ -7,6 +7,7 @@ import (
 
 	"github.com/shyamsundaar/karino-mock-server/models/farmers"
 	"github.com/shyamsundaar/karino-mock-server/models/sales"
+	"github.com/shyamsundaar/karino-mock-server/models/products"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -28,7 +29,8 @@ func ConnectDB(config *Config) {
 	DB.Logger = logger.Default.LogMode(logger.Info)
 
 	log.Println("Running Migrations")
-	DB.AutoMigrate(&models.FarmerDetails{},&sales.SalesOrder{},&sales.SalesOrderItem{})
+	DB.AutoMigrate(&models.FarmerDetails{},&sales.SalesOrder{},&sales.SalesOrderItem{},&products.Product{})
+	SeedInitialData(DB)
 
 	log.Println("🚀 Connected Successfully to the Database")
 }

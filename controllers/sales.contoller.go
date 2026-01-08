@@ -5,24 +5,144 @@ import (
 	"strconv"
 
 	// "strings"
-	// "fmt"
-	// "regexp"
-	// "context"
-	// "log"
+	"context"
+	"fmt"
+	"log"
+	"regexp"
 	"time"
 
 	// "database/sql"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/shyamsundaar/karino-mock-server/initializers"
+	models "github.com/shyamsundaar/karino-mock-server/models/farmers"
 	"github.com/shyamsundaar/karino-mock-server/models/sales"
 
 	// "github.com/google/uuid"
 	// "github.com/shyamsundaar/karino-mock-server/models/farmers"
 	// "karino-mock-server/query"
-	// "github.com/shyamsundaar/karino-mock-server/query"
+	"github.com/shyamsundaar/karino-mock-server/query"
 	"gorm.io/gorm"
 )
+
+func GenerateAndSetNextErpSalesOrderIDGen(
+	ctx context.Context,
+	q *query.Query,
+	salesOrderID uint,
+) (string, error) {
+
+	so := q.SalesOrder.WithContext(ctx)
+
+	// 1. Fetch current sales order row
+	row, err := so.
+		Where(q.SalesOrder.ID.Eq(salesOrderID)).
+		First()
+	if err != nil {
+		return "", err
+	}
+
+	// 2. If already generated → return
+	if row.ErpSalesOrderId != "" {
+		return row.ErpSalesOrderId, nil
+	}
+
+	// 3. Fetch last non-empty ERP sales order ID
+	last, err := so.
+		Where(q.SalesOrder.ErpSalesOrderId.Neq("")).
+		Order(q.SalesOrder.ID.Desc()).
+		First()
+
+	next := 1
+	if err == nil && last.ErpSalesOrderId != "" {
+		re := regexp.MustCompile(`\d+$`)
+		if m := re.FindString(last.ErpSalesOrderId); m != "" {
+			n, _ := strconv.Atoi(m)
+			next = n + 1
+		}
+	}
+
+	// 4. Generate new ERP Sales Order ID
+	newErpSalesOrderID := fmt.Sprintf("ERP-SO-%05d", next)
+
+	// 5. Business delay
+	time.Sleep(time.Duration(initializers.AppConfig.TimeSeconds) * time.Second)
+
+	// 6. Update ONLY if still empty (race-condition safe)
+	_, err = so.
+		Where(
+			q.SalesOrder.ID.Eq(salesOrderID),
+			q.SalesOrder.ErpSalesOrderId.Eq(""),
+		).
+		UpdateColumnSimple(
+			q.SalesOrder.ErpSalesOrderId.Value(newErpSalesOrderID),
+			q.SalesOrder.UpdatedAt.Value(time.Now()),
+		)
+
+	if err != nil {
+		return "", err
+	}
+
+	return newErpSalesOrderID, nil
+}
+
+func GenerateAndSetNextErpSalesOrderCodeGen(
+	ctx context.Context,
+	q *query.Query,
+	ErpSalesOrderCode uint,
+) (string, error) {
+
+	so := q.SalesOrder.WithContext(ctx)
+
+	// 1. Fetch current sales order row
+	row, err := so.
+		Where(q.SalesOrder.ID.Eq(ErpSalesOrderCode)).
+		First()
+	if err != nil {
+		return "", err
+	}
+
+	// 2. If already generated → return
+	if row.ErpSalesOrderCode != "" {
+		return row.ErpSalesOrderCode, nil
+	}
+
+	next := 1
+
+	last, err := so.
+		Where(q.SalesOrder.ErpSalesOrderCode.Neq("")).
+		Order(q.SalesOrder.ID.Desc()).
+		First()
+
+	if err == nil && last.ErpSalesOrderCode != "" {
+		re := regexp.MustCompile(`\d+$`)
+		if m := re.FindString(last.ErpSalesOrderCode); m != "" {
+			n, _ := strconv.Atoi(m)
+			next = n + 1
+		}
+	}
+
+	newErpSalesOrderCode := fmt.Sprintf("ECL 2025/%d", next)
+
+	// 5. Business delay
+	time.Sleep(time.Duration(initializers.AppConfig.TimeSeconds) * time.Second)
+
+	// 6. Update ONLY if still empty (race-condition safe)
+	_, err = so.
+		Where(
+			q.SalesOrder.ID.Eq(ErpSalesOrderCode),
+			q.SalesOrder.ErpSalesOrderCode.Eq(""),
+		).
+		UpdateColumnSimple(
+			q.SalesOrder.ErpSalesOrderCode.Value(newErpSalesOrderCode),
+			q.SalesOrder.UpdatedAt.Value(time.Now()),
+		)
+
+	if err != nil {
+		return "", err
+	}
+
+	return newErpSalesOrderCode, nil
+}
 
 // CreateCustomerSalesDetailHandler handles POST /spic_to_erp/customers/:coopId/salesorders
 // @Summary      Create a new sales order detail
@@ -39,7 +159,9 @@ func CreateCustomerSalesOrderHandler(c *fiber.Ctx) error {
 	coopId := c.Params("coopId")
 
 	// 2. Parse request body
-	var payload sales.SalesOrder
+	var payload *sales.CreateSalesOrderSchema
+	var existingSalesOrder sales.SalesOrder
+	var existingFarmer models.FarmerDetails
 	if err := c.BodyParser(&payload); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(sales.ErrorSalesOrderResponse{
 			Success: false,
@@ -49,10 +171,13 @@ func CreateCustomerSalesOrderHandler(c *fiber.Ctx) error {
 
 	// 3. Basic validations (keep minimal like farmer handler)
 	if payload.OrderID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(sales.ErrorSalesOrderResponse{
-			Success: false,
-			Message: "order_id is required",
-		})
+		return SendSalesErrorResponse(c, "You must specify the OrderID.", payload.OrderID)
+	}
+
+	orderId := initializers.DB.Where("order_id = ? AND coop_id = ?", payload.OrderID, coopId).First(&existingSalesOrder).Error
+
+	if orderId == nil {
+		return SendSalesErrorResponse(c, "The OrderId already exist.", payload.OrderID)
 	}
 
 	if payload.FarmerID == "" {
@@ -60,6 +185,33 @@ func CreateCustomerSalesOrderHandler(c *fiber.Ctx) error {
 			Success: false,
 			Message: "farmer_id is required",
 		})
+	}
+
+	if payload.ContractID == "" {
+		return SendSalesErrorResponse(c, "You must provide the ContractID.", payload.OrderID)
+	}
+
+	farmerId := initializers.DB.
+		Where(
+			"farmer_id = ? AND coop_id = ?",
+			payload.FarmerID,
+			coopId,
+		).
+		First(&existingFarmer).
+		Error
+
+	if farmerId != nil {
+		return SendSalesErrorResponse(c, "The indicated FarmerId does not exist.", payload.OrderID)
+	}
+
+	for _, item := range payload.OrderItems {
+		if item.ProductGroup == "" {
+			return SendSalesErrorResponse(c, "The quantity of the product must be greater than zero.", payload.OrderID)
+		}
+
+		if item.Quantity <= 0 {
+			return SendSalesErrorResponse(c, "The quantity of the product must be greater than zero.", payload.OrderID)
+		}
 	}
 
 	// 4. Map payload → SalesOrder DB model
@@ -100,6 +252,8 @@ func CreateCustomerSalesOrderHandler(c *fiber.Ctx) error {
 
 		PickupDate: payload.PickupDate,
 		CreatedBy:  payload.CreatedBy,
+
+		NoofOrderItems: len(payload.OrderItems),
 	}
 
 	// 5. DB transaction (parent + children)
@@ -147,6 +301,19 @@ func CreateCustomerSalesOrderHandler(c *fiber.Ctx) error {
 			Message: err.Error(),
 		})
 	}
+	ctx := context.Background()
+	q := query.Use(initializers.DB)
+
+	go func(orderDBID uint) {
+		_, err := GenerateAndSetNextErpSalesOrderIDGen(ctx, q, orderDBID)
+		_, err1 := GenerateAndSetNextErpSalesOrderCodeGen(ctx, q, orderDBID)
+		if err1 != nil {
+			log.Println("❌ ERP SalesOrder Code generation failed:", err1)
+		}
+		if err != nil {
+			log.Println("❌ ERP SalesOrder ID generation failed:", err)
+		}
+	}(newOrder.ID)
 
 	// 6. Response DTO (exactly as you defined)
 	response := sales.CreateSalesOrderResponse{
@@ -156,13 +323,29 @@ func CreateCustomerSalesOrderHandler(c *fiber.Ctx) error {
 			ErpSalesOrderId:     "", // populate later if async
 			ErpSalesOrderCode:   "",
 			SpicSalesOrderId:    newOrder.OrderID,
-			CreatedAt:           newOrder.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:           newOrder.UpdatedAt.Format(time.RFC3339),
+			CreatedAt:           newOrder.CreatedAt.Format("2006-01-02T15:04:05Z"),
+			UpdatedAt:           newOrder.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 			Message:             "Sales order created successfully",
 		},
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(response)
+}
+
+func SendSalesErrorResponse(c *fiber.Ctx, message string, orderId string) error {
+	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
+	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+		"success": false,
+		"data": fiber.Map{
+			"tempERPSalesOrderId": "0",
+			"erpSalesOrderId":     "",
+			"erpSalesOrderCode":   "",
+			"spicSalesOrderId":    "",
+			"createdAt":           now,
+			"updatedAt":           now,
+			"message":             message,
+		},
+	})
 }
 
 // GetCustomerSalesDetailHandler handles GET /spic_to_erp/customers/:coopId/salesorders
@@ -209,14 +392,12 @@ func GetCustomerSalesDetailHandler(c *fiber.Ctx) error {
 	var data []sales.SalesOrderListResponse
 	for _, f := range salesorder {
 		data = append(data, sales.SalesOrderListResponse{
-			OrderID:     f.OrderID,
-			OrderNumber: f.OrderNumber,
-			FarmerID:    f.FarmerID,
-			FarmerName:  f.FarmerName,
-			ClubID:      f.ClubID,
-			ClubName:    f.ClubName,
-			CreatedAt:   f.CreatedAt.Format(time.RFC3339),
-			UpdatedAt:   f.UpdatedAt.Format(time.RFC3339),
+			TempERPSalesOrderId: f.TempID,
+			ErpSalesOrderId:     f.ErpSalesOrderId,
+			ErpSalesOrderCode:   f.ErpSalesOrderCode,
+			SpicSalesOrderId:    f.OrderID,
+			CreatedAt:           f.CreatedAt.Format("2006-01-02T15:04:05Z"),
+			UpdatedAt:           f.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 		})
 	}
 
@@ -234,16 +415,16 @@ func GetCustomerSalesDetailHandler(c *fiber.Ctx) error {
 	// return c.Status(fiber.StatusCreated).JSON(response)
 }
 
-// FindSalesOrderDetails handles GET /spic_to_erp/customers/:coopId/salesorders/:salesordersid
+// FindSalesOrderDetails handles GET /spic_to_erp/customers/:coopId/salesorders/:orderId
 // @Summary      Get salesorder details
 // @Description  Get a paginated list of SalesOrder details for a specific cooperative
 // @Tags         salesoreder
 // @Accept       json
 // @Produce      json
 // @Param        coopId path      string  true   " "
-// @Param        salesordersid path      string  true   " "
+// @Param        orderId path      string  true   " "
 // @Success      200    {object}  sales.SalesOrderAmountResponse
-// @Router       /spic_to_erp/customers/{coopId}/salesorders/{salesordersid} [get]
+// @Router       /spic_to_erp/customers/{coopId}/salesorders/{orderId} [get]
 func GetCustomerSalesOrderDetailsHandler(c *fiber.Ctx) error {
 	//coopId := c.Params("coopId")
 	var SalesOrderAmount []sales.SalesOrder
@@ -253,9 +434,9 @@ func GetCustomerSalesOrderDetailsHandler(c *fiber.Ctx) error {
 		data = append(data, sales.SalesOrderAmountResponse{
 			Message:             "Sales order amount calculated successfully",
 			TempERPSalesOrderId: f.TempID,
-			ErpSalesOrderId:     "TEMP-SO-001",
-			ErpSalesOrderCode:   "SO2026-001",
-			SpicSalesOrderId:    "SPIC-SO-7788",
+			ErpSalesOrderId:     f.ErpSalesOrderId,
+			ErpSalesOrderCode:   f.ErpSalesOrderCode,
+			SpicSalesOrderId:    f.OrderID,
 			CreatedAt:           f.CreatedAt.Format("2006-01-02T15:04:05Z"),
 			UpdatedAt:           f.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 			OrderValue:          12500.50,
@@ -271,8 +452,8 @@ func GetCustomerSalesOrderDetailsHandler(c *fiber.Ctx) error {
 		ErpSalesOrderId:     "ERP-SO-10001",
 		ErpSalesOrderCode:   "SO2026-001",
 		SpicSalesOrderId:    "SPIC-SO-7788",
-		CreatedAt:           time.Now().UTC().Format(time.RFC3339),
-		UpdatedAt:           time.Now().UTC().Format(time.RFC3339),
+		CreatedAt:           time.Now().UTC().Format("2006-01-02T15:04:05Z"),
+		UpdatedAt:           time.Now().UTC().Format("2006-01-02T15:04:05Z"),
 		OrderValue:          12500.50,
 		TaxAmount:           2250.09,
 		TotalAmount:         14750.59,
