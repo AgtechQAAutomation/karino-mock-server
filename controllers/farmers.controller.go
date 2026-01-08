@@ -285,27 +285,29 @@ func CreateCustomerDetailHandler(c *fiber.Ctx) error {
 	// 7. CREATE NEW FARMER RECORD
 	// ----------------------------------------------------
 	newDetail := models.FarmerDetails{
-		CoopID:                      coopId,
-		FarmerID:                    payload.FarmerID,
-		FirstName:                   payload.FirstName,
-		LastName:                    payload.LastName,
-		MobileNumber:                payload.MobileNumber,
-		RegionID:                    payload.RegionID,
-		RegionPartID:                payload.RegionPartID,
-		SettlementID:                payload.SettlementID,
-		SettlementPartID:            payload.SettlementPartID,
-		CustomGeographyStructure1ID: payload.CustomGeo1ID,
-		CustomGeographyStructure2ID: payload.CustomGeo2ID,
-		ZipCode:                     payload.ZipCode,
-		FarmerKycTypeID:             payload.FarmerKycTypeID,
-		FarmerKycType:               payload.FarmerKycType,
-		FarmerKycID:                 payload.FarmerKycID,
-		ClubID:                      payload.ClubID,
-		ClubName:                    payload.ClubName,
-		ClubLeaderFarmerID:          payload.ClubLeaderFarmerID,
-		RaithuCreatedDate:           payload.RaithuCreatedDate,
-		RaithuUpdatedAt:             payload.RaithuUpdatedAt,
+		CoopID: coopId,
 	}
+
+	// copy from payload
+	newDetail.FarmerID = payload.FarmerID
+	newDetail.FirstName = payload.FirstName
+	newDetail.LastName = payload.LastName
+	newDetail.MobileNumber = payload.MobileNumber
+	newDetail.RegionID = payload.RegionID
+	newDetail.RegionPartID = payload.RegionPartID
+	newDetail.SettlementID = payload.SettlementID
+	newDetail.SettlementPartID = payload.SettlementPartID
+	newDetail.CustomGeographyStructure1ID = payload.CustomGeo1ID
+	newDetail.CustomGeographyStructure2ID = payload.CustomGeo2ID
+	newDetail.ZipCode = payload.ZipCode
+	newDetail.FarmerKycTypeID = payload.FarmerKycTypeID
+	newDetail.FarmerKycType = payload.FarmerKycType
+	newDetail.FarmerKycID = payload.FarmerKycID
+	newDetail.ClubID = payload.ClubID
+	newDetail.ClubName = payload.ClubName
+	newDetail.ClubLeaderFarmerID = payload.ClubLeaderFarmerID
+	newDetail.RaithuCreatedDate = payload.RaithuCreatedDate
+	newDetail.RaithuUpdatedAt = payload.RaithuUpdatedAt
 
 	if err := initializers.DB.Create(&newDetail).Error; err != nil {
 		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{
