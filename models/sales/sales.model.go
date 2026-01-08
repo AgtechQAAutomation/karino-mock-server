@@ -3,7 +3,7 @@ package sales
 import (
 	"time"
 
-	"github.com/go-playground/validator/v10"
+	// "github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
@@ -51,8 +51,8 @@ type SalesOrder struct {
 	CustomZone1ID int `gorm:"column:custom_zone1_id" json:"custom_zone1_id"`
 	CustomZone2ID int `gorm:"column:custom_zone2_id" json:"custom_zone2_id"`
 
-	PickupDate *time.Time `gorm:"column:pickup_date;default:null" json:"pickup_date"`
-	CreatedBy  string     `gorm:"column:created_by;size:64" json:"created_by"`
+	PickupDate string `gorm:"column:pickup_date;default:null" json:"pickup_date"`
+	CreatedBy  string `gorm:"column:created_by;size:64" json:"created_by"`
 
 	CreatedAt *time.Time `gorm:"default:null"`
 	UpdatedAt *time.Time `gorm:"default:null"`
@@ -122,7 +122,7 @@ func (SalesOrderItem) TableName() string {
 // =======================
 //
 
-var validate = validator.New()
+// var validate = validator.New()
 
 type ErrorResponse struct {
 	Field string `json:"field"`
@@ -173,5 +173,5 @@ type CreateSalesOrderSchema struct {
 	PickupDate string `json:"pickup_date"`
 	CreatedBy  string `json:"created_by"`
 
-	OrderItems []SalesOrderItem `json:"order_items"`
+	OrderItems []SalesOrderItem `json:"orderItems"`
 }

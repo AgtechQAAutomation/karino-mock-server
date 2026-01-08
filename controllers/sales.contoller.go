@@ -15,6 +15,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/shyamsundaar/karino-mock-server/initializers"
+	models "github.com/shyamsundaar/karino-mock-server/models/farmers"
 	"github.com/shyamsundaar/karino-mock-server/models/sales"
 
 	// "github.com/google/uuid"
@@ -39,7 +40,9 @@ func CreateCustomerSalesOrderHandler(c *fiber.Ctx) error {
 	coopId := c.Params("coopId")
 
 	// 2. Parse request body
-	var payload sales.SalesOrder
+	var payload *sales.CreateSalesOrderSchema
+	var existingSalesOrder sales.SalesOrder
+	var existingFarmer models.FarmerDetails
 	if err := c.BodyParser(&payload); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(sales.ErrorSalesOrderResponse{
 			Success: false,
@@ -49,10 +52,13 @@ func CreateCustomerSalesOrderHandler(c *fiber.Ctx) error {
 
 	// 3. Basic validations (keep minimal like farmer handler)
 	if payload.OrderID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(sales.ErrorSalesOrderResponse{
-			Success: false,
-			Message: "order_id is required",
-		})
+		return SendSalesErrorResponse(c, "You must specify the OrderID.", payload.OrderID)
+	}
+
+	orderId := initializers.DB.Where("order_id = ? AND coop_id = ?", payload.OrderID, coopId).First(&existingSalesOrder).Error
+
+	if orderId == nil {
+		return SendSalesErrorResponse(c, "The OrderId already exist.", payload.OrderID)
 	}
 
 	if payload.FarmerID == "" {
@@ -60,6 +66,33 @@ func CreateCustomerSalesOrderHandler(c *fiber.Ctx) error {
 			Success: false,
 			Message: "farmer_id is required",
 		})
+	}
+
+	if payload.ContractID == "" {
+		return SendSalesErrorResponse(c, "You must provide the ContractID.", payload.OrderID)
+	}
+
+	farmerId := initializers.DB.
+		Where(
+			"farmer_id = ? AND coop_id = ?",
+			payload.FarmerID,
+			coopId,
+		).
+		First(&existingFarmer).
+		Error
+
+	if farmerId != nil {
+		return SendSalesErrorResponse(c, "The indicated FarmerId does not exist.", payload.OrderID)
+	}
+
+	for _, item := range payload.OrderItems {
+		if item.ProductGroup == "" {
+			return SendSalesErrorResponse(c, "The quantity of the product must be greater than zero.", payload.OrderID)
+		}
+
+		if item.Quantity <= 0 {
+			return SendSalesErrorResponse(c, "The quantity of the product must be greater than zero.", payload.OrderID)
+		}
 	}
 
 	// 4. Map payload → SalesOrder DB model
@@ -163,6 +196,22 @@ func CreateCustomerSalesOrderHandler(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(response)
+}
+
+func SendSalesErrorResponse(c *fiber.Ctx, message string, orderId string) error {
+	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
+	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+		"success": false,
+		"data": fiber.Map{
+			"tempERPSalesOrderId": "0",
+			"erpSalesOrderId":     "",
+			"erpSalesOrderCode":   "",
+			"spicSalesOrderId":    "",
+			"createdAt":           now,
+			"updatedAt":           now,
+			"message":             message,
+		},
+	})
 }
 
 // GetCustomerSalesDetailHandler handles GET /spic_to_erp/customers/:coopId/salesorders
