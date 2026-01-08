@@ -173,5 +173,5 @@ type CreateSalesOrderSchema struct {
 	PickupDate string `json:"pickup_date"`
 	CreatedBy  string `json:"created_by"`
 
-	OrderItems []SalesOrderItem `json:"orderItems"`
+	OrderItems []SalesOrderItem `json:"order_items"`
 }
