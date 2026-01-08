@@ -294,7 +294,7 @@ func GetCustomerSalesDetailHandler(c *fiber.Ctx) error {
 // @Success      200    {object}  sales.SalesOrderAmountResponse
 // @Router       /spic_to_erp/customers/{coopId}/salesorders/{orderId} [get]
 func GetCustomerSalesOrderDetailsHandler(c *fiber.Ctx) error {
-	// coopId := c.Params("coopId")
+	//coopId := c.Params("coopId")
 	var SalesOrderAmount []sales.SalesOrder
 
 	var data []sales.SalesOrderAmountResponse
