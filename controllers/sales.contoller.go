@@ -436,9 +436,9 @@ func GetCustomerSalesOrderDetailsHandler(c *fiber.Ctx) error {
 		data = append(data, sales.SalesOrderAmountResponse{
 			Message:             "Sales order amount calculated successfully",
 			TempERPSalesOrderId: f.TempID,
-			ErpSalesOrderId:     "TEMP-SO-001",
-			ErpSalesOrderCode:   "SO2026-001",
-			SpicSalesOrderId:    "SPIC-SO-7788",
+			ErpSalesOrderId:     f.ErpSalesOrderId,
+			ErpSalesOrderCode:   f.ErpSalesOrderCode,
+			SpicSalesOrderId:    f.OrderID,
 			CreatedAt:           f.CreatedAt.Format("2006-01-02T15:04:05Z"),
 			UpdatedAt:           f.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 			OrderValue:          12500.50,
