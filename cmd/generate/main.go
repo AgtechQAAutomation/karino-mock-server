@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/shyamsundaar/karino-mock-server/models/farmers"
-	// "github.com/shyamsundaar/karino-mock-server/models/sales"
+	models "github.com/shyamsundaar/karino-mock-server/models/farmers"
+	"github.com/shyamsundaar/karino-mock-server/models/sales"
 	"gorm.io/gen"
 )
 
@@ -16,6 +16,8 @@ func main() {
 	// Use the structs from your models package
 	g.ApplyBasic(
 		models.FarmerDetails{},
+		sales.SalesOrder{},
+		sales.SalesOrderItem{},
 	)
 
 	// Build the type-safe DAO
