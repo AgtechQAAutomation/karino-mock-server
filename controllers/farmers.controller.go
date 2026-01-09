@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davitostes/go-mapper/mapper"
 	"github.com/gofiber/fiber/v2"
 	"github.com/shyamsundaar/karino-mock-server/initializers"
 	models "github.com/shyamsundaar/karino-mock-server/models/farmers"
@@ -290,28 +289,28 @@ func CreateCustomerDetailHandler(c *fiber.Ctx) error {
 	}
 
 	// copy from payload
-	// newDetail.FarmerID = payload.FarmerID
-	// newDetail.FirstName = payload.FirstName
-	// newDetail.LastName = payload.LastName
-	// newDetail.MobileNumber = payload.MobileNumber
-	// newDetail.RegionID = payload.RegionID
-	// newDetail.RegionPartID = payload.RegionPartID
-	// newDetail.SettlementID = payload.SettlementID
-	// newDetail.SettlementPartID = payload.SettlementPartID
-	// newDetail.ZipCode = payload.ZipCode
-	// newDetail.FarmerKycTypeID = payload.FarmerKycTypeID
-	// newDetail.FarmerKycType = payload.FarmerKycType
-	// newDetail.FarmerKycID = payload.FarmerKycID
-	// newDetail.ClubID = payload.ClubID
-	// newDetail.ClubName = payload.ClubName
-	// newDetail.ClubLeaderFarmerID = payload.ClubLeaderFarmerID
-	// newDetail.RaithuCreatedDate = payload.RaithuCreatedDate
-	// newDetail.RaithuUpdatedAt = payload.RaithuUpdatedAt
+	newDetail.FarmerID = payload.FarmerID
+	newDetail.FirstName = payload.FirstName
+	newDetail.LastName = payload.LastName
+	newDetail.MobileNumber = payload.MobileNumber
+	newDetail.RegionID = payload.RegionID
+	newDetail.RegionPartID = payload.RegionPartID
+	newDetail.SettlementID = payload.SettlementID
+	newDetail.SettlementPartID = payload.SettlementPartID
+	newDetail.ZipCode = payload.ZipCode
+	newDetail.FarmerKycTypeID = payload.FarmerKycTypeID
+	newDetail.FarmerKycType = payload.FarmerKycType
+	newDetail.FarmerKycID = payload.FarmerKycID
+	newDetail.ClubID = payload.ClubID
+	newDetail.ClubName = payload.ClubName
+	newDetail.ClubLeaderFarmerID = payload.ClubLeaderFarmerID
+	newDetail.RaithuCreatedDate = payload.RaithuCreatedDate
+	newDetail.RaithuUpdatedAt = payload.RaithuUpdatedAt
 
-	// Perform the mapping
-	if err := mapper.Map(payload, &newDetail); err != nil {
-		log.Fatalf("failed to map payload to FarmerDetails: %v", err)
-	}
+	// // Perform the mapping
+	// if err := mapper.Map(payload, &newDetail); err != nil {
+	// 	log.Fatalf("failed to map payload to FarmerDetails: %v", err)
+	// }
 
 	newDetail.CustomGeographyStructure1ID = payload.CustomGeo1ID
 	newDetail.CustomGeographyStructure2ID = payload.CustomGeo2ID
