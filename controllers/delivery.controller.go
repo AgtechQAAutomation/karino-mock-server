@@ -1,14 +1,18 @@
 package controllers
 
 import (
-	"strconv"
 	"math"
-	// "time"
+	"strconv"
+
+	"time"
+
 	"github.com/gofiber/fiber/v2"
+
 	// "github.com/shyamsundaar/karino-mock-server/models/delivery"
 	// "gorm.io/gorm"
 	// "github.com/gin-gonic/gin"
 	"github.com/shyamsundaar/karino-mock-server/initializers"
+	"github.com/shyamsundaar/karino-mock-server/models/delivery"
 	"github.com/shyamsundaar/karino-mock-server/models/sales"
 )
 
@@ -23,7 +27,105 @@ import (
 // @Success      200    {object}  delivery.CreateDeliveryDocumentSuccessResponse
 // @Router       /spic_to_erp/customers/{coopId}/salesorders/deliverydocuments [post]
 func CreateCustomerDeliveryDocumentDetailsHandler(c *fiber.Ctx) error {
-		return c.Status(fiber.StatusCreated).JSON("hi")
+	coopId := c.Params("coopId")
+
+	var payload *delivery.CreateDeliveryDocumentSchema
+	var salesOrder sales.SalesOrder
+	var deliverydocument delivery.CreateDeliveryDocuments
+
+	//var salesOrderItems sales.SalesOrderItem
+	var salesOrderItemsList []sales.SalesOrderItem
+	if err := c.BodyParser(&payload); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"status":  "fail",
+			"message": err.Error(),
+		})
+	}
+
+	var noof_order_items int
+
+	salesErr := initializers.DB.Where("order_id = ? AND erp_sales_order_code = ?", payload.OrderID, payload.ErpSalesOrderCode).First(&salesOrder).Error
+	if salesErr != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"Message": "OrderId or SalesOrder not found "})
+	}
+
+	deliverydocumenterr := initializers.DB.Where("order_id = ?", payload.OrderID).First(&deliverydocument).Error
+
+	if deliverydocumenterr != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"Message": "Delivery Documents already Created for the OrderId"})
+	}
+
+	deliverydocumentserr := initializers.DB.Model(&salesOrder).Where("order_id = ?", payload.OrderID).Pluck("noof_order_items", &noof_order_items).Error
+
+	if deliverydocumentserr != nil {
+		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{"Message": "Error fetching delivery documents"})
+	}
+
+	if payload.NoofDeliveryDocuments > noof_order_items {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"Message": "Number of delivery documents cannot be greater than number of order items"})
+	}
+
+	orderItemserr := initializers.DB.Where("order_id = ?", payload.OrderID).Find(&salesOrderItemsList).Error
+	if orderItemserr != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"Message": "No items found"})
+	}
+
+	// Split salesOrderItemsList into N chunks
+	n := payload.NoofDeliveryDocuments
+	total := len(salesOrderItemsList)
+
+	if n <= 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"Message": "NoofDeliveryDocuments must be greater than 0",
+		})
+	}
+
+	// Calculate size of each chunk
+	chunkSize := total / n
+	remainder := total % n
+
+	var chunks [][]sales.SalesOrderItem
+
+	start := 0
+	for range n {
+		end := start + chunkSize
+		if remainder > 0 {
+			end++
+			remainder--
+		}
+
+		if end > total {
+			end = total
+		}
+
+		chunks = append(chunks, salesOrderItemsList[start:end])
+		start = end
+	}
+	now := time.Now().UTC()
+
+	for docIndex, document := range chunks { // Each delivery doc
+		for _, item := range document { // Each item inside doc
+			// Save in DB
+			deliveryItem := delivery.CreateDeliveryDocuments{
+				CoopID:               coopId,
+				ErpSalesOrderCode:    payload.ErpSalesOrderCode,
+				OrderID:              payload.OrderID,
+				DeliveryDocumentID:   strconv.Itoa(docIndex + 1),
+				DeliveryDocumentCode: "",
+				OrderItemID:          item.OrderItemID,
+				CreatedAt:            &now,
+				UpdatedAt:            &now,
+			}
+			initializers.DB.Create(&deliveryItem)
+		}
+	}
+
+	// Response
+	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
+		"deliveryDocuments": chunks,
+	})
+
+	// return c.Status(fiber.StatusCreated).JSON(salesOrderItemsList)
 }
 
 // GetCustomerDeliveryDocumentDetailHandler handles GET /spic_to_erp/customers/:coopId/salesorders/deliverydocuments
@@ -92,7 +194,6 @@ func GetCustomerDeliveryDocumentDetailHandler(c *fiber.Ctx) error {
 	})
 }
 
-
 // GetDeliveryDetailParticularHandler handles GET /spic_to_erp/customers/:coopId/salesorders/:orderId/deliverydocuments
 // @Summary      List deliverydocuments details for a sales order
 // @Description  Get a paginated list of farmer details for a specific cooperative
@@ -106,4 +207,3 @@ func GetCustomerDeliveryDocumentDetailHandler(c *fiber.Ctx) error {
 func GetDeliveryDetailParticularHandler(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON("hi")
 }
-
