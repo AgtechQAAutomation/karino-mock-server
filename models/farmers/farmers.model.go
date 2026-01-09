@@ -32,8 +32,8 @@ type FarmerDetails struct {
 	ClubID                      string     `json:"clubId"`
 	ClubName                    string     `json:"clubName"`
 	ClubLeaderFarmerID          string     `json:"clubLeaderFarmerId" `
-	RaithuCreatedDate           time.Time  `json:"createdDate" gorm:"default:null"`
-	RaithuUpdatedAt             time.Time  `json:"updatedAt" gorm:"default:null"`
+	RaithuCreatedDate           string     `json:"createdDate" gorm:"default:null"`
+	RaithuUpdatedAt             string     `json:"updatedAt" gorm:"default:null"`
 	CreatedAt                   time.Time  `gorm:"default:null" `
 	UpdatedAt                   time.Time  `gorm:"default:null"`
 	CustIDUpdateAt              *time.Time `gorm:"default:null"`
@@ -88,23 +88,23 @@ type ErrorResponse struct {
 // CreateDetailSchema represents request body
 // swagger:model CreateDetailSchema
 type CreateDetailSchema struct {
-	FarmerID           string    `json:"farmerId" example:"string"`
-	FirstName          string    `json:"firstName" example:"string"`
-	LastName           string    `json:"lastName" example:"string"`
-	MobileNumber       string    `json:"mobile_number" example:"string"`
-	RegionID           int       `json:"regionId" example:"0"`
-	RegionPartID       int       `json:"regionPartID" example:"0"`
-	SettlementID       int       `json:"settlementID" example:"0"`
-	SettlementPartID   int       `json:"settlementPartID" example:"0"`
-	CustomGeo1ID       string    `json:"custom_geography_structure1_id" example:"0"`
-	CustomGeo2ID       string    `json:"custom_geography_structure2_id" example:"0"`
-	ZipCode            string    `json:"ZipCode" example:"string"`
-	FarmerKycTypeID    int       `json:"farmer_kyc_type_id" example:"0"`
-	FarmerKycType      string    `json:"farmer_kyc_type" example:"string"`
-	FarmerKycID        string    `json:"farmer_kyc_id" example:"string"`
-	ClubID             string    `json:"clubId" example:"string"`
-	ClubName           string    `json:"clubName" example:"string"`
-	ClubLeaderFarmerID string    `json:"clubLeaderFarmerId" example:"string"`
-	RaithuCreatedDate  time.Time `json:"createdDate" example:"2025-12-30T05:03:17.863Z"`
-	RaithuUpdatedAt    time.Time `json:"updatedAt" example:"2025-12-30T05:03:17.863Z"`
+	FarmerID           string `json:"farmerId" example:"string"`
+	FirstName          string `json:"firstName" example:"string"`
+	LastName           string `json:"lastName" example:"string"`
+	MobileNumber       string `json:"mobile_number" example:"string"`
+	RegionID           int    `json:"regionId" example:"0"`
+	RegionPartID       int    `json:"regionPartID" example:"0"`
+	SettlementID       int    `json:"settlementID" example:"0"`
+	SettlementPartID   int    `json:"settlementPartID" example:"0"`
+	CustomGeo1ID       string `json:"custom_geography_structure1_id" example:"0"`
+	CustomGeo2ID       string `json:"custom_geography_structure2_id" example:"0"`
+	ZipCode            string `json:"ZipCode" example:"string"`
+	FarmerKycTypeID    int    `json:"farmer_kyc_type_id" example:"0"`
+	FarmerKycType      string `json:"farmer_kyc_type" example:"string"`
+	FarmerKycID        string `json:"farmer_kyc_id" example:"string"`
+	ClubID             string `json:"clubId" example:"string"`
+	ClubName           string `json:"clubName" example:"string"`
+	ClubLeaderFarmerID string `json:"clubLeaderFarmerId" example:"string"`
+	RaithuCreatedDate  string `json:"createdDate" example:"2025-12-30T05:03:17.863Z"`
+	RaithuUpdatedAt    string `json:"updatedAt" example:"2025-12-30T05:03:17.863Z"`
 }

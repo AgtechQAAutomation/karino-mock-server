@@ -346,7 +346,7 @@ func CreateCustomerDetailHandler(c *fiber.Ctx) error {
 }
 
 func SendCustomerErrorResponse(c *fiber.Ctx, msg string, farmerId string) error {
-	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
+	now := time.Now().UTC()
 	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 		"success": false,
 		"data": fiber.Map{
@@ -541,12 +541,8 @@ func CreateVendorDetailHandler(c *fiber.Ctx) error {
 		)
 	}
 
-	if coopId == "" {
-		return SendCustomerErrorResponse(
-			c,
-			"The indicated cooperative does not exist.",
-			payload.FarmerID,
-		)
+	if !isCoopAllowed(coopId) {
+		return SendCustomerErrorResponse(c, "The indicated cooperative does not exist.", payload.FarmerID)
 	}
 
 	// ----------------------------------------------------

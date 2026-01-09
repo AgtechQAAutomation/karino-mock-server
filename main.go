@@ -55,10 +55,11 @@ func main() {
 			router.Post("/:coopId/farmers", controllers.CreateCustomerDetailHandler)
 			router.Get("/:coopId/farmers", controllers.FindCustomerDetailsHandler)
 			router.Get("/:coopId/farmers/:farmerId", controllers.GetCustomerDetailHandler)
+
 			router.Post("/:coopId/salesorders", controllers.CreateCustomerSalesOrderHandler)
 			router.Get("/:coopId/salesorders", controllers.GetCustomerSalesDetailHandler)
-			router.Get("/:coopId/salesorders/:salesordersId", controllers.GetCustomerSalesOrderDetailsHandler)
-			router.Get("/:coopId/salesorders/deliverydocuments", controllers.GetDeliveryDetailWithinDateHandler)			
+			router.Get("/:coopId/salesorders/:orderId", controllers.GetCustomerSalesOrderDetailsHandler)
+			router.Get("/:coopId/salesorders/deliverydocuments", controllers.GetDeliveryDetailWithinDateHandler)
 			router.Get("/:coopId/salesorders/:orderId/deliverydocuments", controllers.GetDeliveryDetailParticularHandler)
 		})
 

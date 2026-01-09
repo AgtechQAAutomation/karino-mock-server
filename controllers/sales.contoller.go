@@ -16,6 +16,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/shyamsundaar/karino-mock-server/initializers"
 	models "github.com/shyamsundaar/karino-mock-server/models/farmers"
+	"github.com/shyamsundaar/karino-mock-server/models/products"
 	"github.com/shyamsundaar/karino-mock-server/models/sales"
 
 	// "github.com/google/uuid"
@@ -206,7 +207,13 @@ func CreateCustomerSalesOrderHandler(c *fiber.Ctx) error {
 
 	for _, item := range payload.OrderItems {
 		if item.ProductGroup == "" {
-			return SendSalesErrorResponse(c, "The quantity of the product must be greater than zero.", payload.OrderID)
+			return SendSalesErrorResponse(c, "You must specify the item code or group.", payload.OrderID)
+		}
+
+		var product products.Product
+		productErr := initializers.DB.Where("product_code = ?", item.ProductGroup).First(&product).Error
+		if productErr != nil {
+			return SendSalesErrorResponse(c, "You must specify the item code or group.", payload.OrderID)
 		}
 
 		if item.Quantity <= 0 {
@@ -363,16 +370,40 @@ func SendSalesErrorResponse(c *fiber.Ctx, message string, orderId string) error 
 // @Router       /spic_to_erp/customers/{coopId}/salesorders [get]
 func GetCustomerSalesDetailHandler(c *fiber.Ctx) error {
 	coopId := c.Params("coopId")
+	updatedFrom := c.Query("updatedFrom")
+	updatedTo := c.Query("updatedTo")
 	var salesorder []sales.SalesOrder
 
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+	if limit <= 0 {
+		limit = 10
+	}
+
 	offset := (page - 1) * limit
 	var totalRecords int64
 
 	query := initializers.DB.
 		Model(&sales.SalesOrder{}).
 		Where("coop_id = ?", coopId)
+
+	if updatedFrom != "" && updatedTo != "" {
+		fromTime, err := time.Parse(time.RFC3339, updatedFrom)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"message": "Invalid updatedFrom format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)",
+			})
+		}
+
+		toTime, err := time.Parse(time.RFC3339, updatedTo)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"message": "Invalid updatedTo format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)",
+			})
+		}
+
+		query = query.Where("updated_at>= ? AND updated_at<= ?", fromTime, toTime)
+	}
 
 	query.Count(&totalRecords)
 
@@ -389,7 +420,7 @@ func GetCustomerSalesDetailHandler(c *fiber.Ctx) error {
 
 	totalPages := int(math.Ceil(float64(totalRecords) / float64(limit)))
 
-	var data []sales.SalesOrderListResponse
+	data := make([]sales.SalesOrderListResponse, 0)
 	for _, f := range salesorder {
 		data = append(data, sales.SalesOrderListResponse{
 			TempERPSalesOrderId: f.TempID,
@@ -426,32 +457,27 @@ func GetCustomerSalesDetailHandler(c *fiber.Ctx) error {
 // @Success      200    {object}  sales.SalesOrderAmountResponse
 // @Router       /spic_to_erp/customers/{coopId}/salesorders/{orderId} [get]
 func GetCustomerSalesOrderDetailsHandler(c *fiber.Ctx) error {
-	//coopId := c.Params("coopId")
-	var SalesOrderAmount []sales.SalesOrder
+	coopId := c.Params("coopId")
+	orderId := c.Params("orderId")
 
-	var data []sales.SalesOrderAmountResponse
-	for _, f := range SalesOrderAmount {
-		data = append(data, sales.SalesOrderAmountResponse{
-			Message:             "Sales order amount calculated successfully",
-			TempERPSalesOrderId: f.TempID,
-			ErpSalesOrderId:     f.ErpSalesOrderId,
-			ErpSalesOrderCode:   f.ErpSalesOrderCode,
-			SpicSalesOrderId:    f.OrderID,
-			CreatedAt:           f.CreatedAt.Format("2006-01-02T15:04:05Z"),
-			UpdatedAt:           f.UpdatedAt.Format("2006-01-02T15:04:05Z"),
-			OrderValue:          12500.50,
-			TaxAmount:           2250.09,
-			TotalAmount:         14750.59,
-		})
+	var salesOrder sales.SalesOrder
+	if !isCoopAllowed(coopId) {
+		return SendOrderIdErrorResponse(c, "The indicated cooperative does not exist.", orderId)
+	}
+
+	err := initializers.DB.Where("coop_id = ? AND order_id = ?", coopId, orderId).First(&salesOrder).Error
+
+	if err != nil {
+		return SendOrderIdErrorResponse(c, "There is no order with the indicated OrderID.", orderId)
 	}
 
 	// Implementation for retrieving sales order details
 	response := sales.SalesOrderAmountResponse{
-		Message:             "Sales order amount calculated successfully",
-		TempERPSalesOrderId: "TEMP-SO-001",
-		ErpSalesOrderId:     "ERP-SO-10001",
-		ErpSalesOrderCode:   "SO2026-001",
-		SpicSalesOrderId:    "SPIC-SO-7788",
+		Message:             "",
+		TempERPSalesOrderId: salesOrder.TempID,
+		ErpSalesOrderId:     salesOrder.ErpSalesOrderId,
+		ErpSalesOrderCode:   salesOrder.ErpSalesOrderCode,
+		SpicSalesOrderId:    salesOrder.OrderID,
 		CreatedAt:           time.Now().UTC().Format("2006-01-02T15:04:05Z"),
 		UpdatedAt:           time.Now().UTC().Format("2006-01-02T15:04:05Z"),
 		OrderValue:          12500.50,
@@ -460,4 +486,20 @@ func GetCustomerSalesOrderDetailsHandler(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(response)
+}
+
+func SendOrderIdErrorResponse(c *fiber.Ctx, msg string, orderId string) error {
+	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+		"Message":             msg,
+		"TempERPSalesOrderId": "",
+		"ErpSalesOrderId":     "",
+		"ErpSalesOrderCode":   "",
+		"SpicSalesOrderId":    orderId,
+		"CreatedAt":           "1900-01-01T00:00:00",
+		"updatedAt":           "1900-01-01T00:00:00",
+		"orderValue":          0.0,
+		"taxAmount":           0.0,
+		"totalAmount":         0.0,
+	})
+
 }
