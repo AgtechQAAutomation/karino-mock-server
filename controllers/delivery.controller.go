@@ -12,6 +12,20 @@ import (
 	"github.com/shyamsundaar/karino-mock-server/models/sales"
 )
 
+// CreateCustomerDeliveryDocumentDetailsHandler handles POST /spic_to_erp/customers/:coopId/salesorders/deliverydocuments
+// @Summary      Create deliverydocuments details for a sales order
+// @Description  Create deliverydocuments details for a sales order
+// @Tags         deliverydocuments
+// @Accept       json
+// @Produce      json
+// @Param        coopId path      string  true   " "
+// @Param        detail  body      delivery.CreateDeliveryDocumentSchema    true  "Create delivery document Payload"
+// @Success      200    {object}  delivery.CreateDeliveryDocumentSuccessResponse
+// @Router       /spic_to_erp/customers/{coopId}/salesorders/deliverydocuments [post]
+func CreateCustomerDeliveryDocumentDetailsHandler(c *fiber.Ctx) error {
+		return c.Status(fiber.StatusCreated).JSON("hi")
+}
+
 // GetCustomerDeliveryDocumentDetailHandler handles GET /spic_to_erp/customers/:coopId/salesorders/deliverydocuments
 // @Summary      List salesorder updated within date ranges
 // @Description  Get a paginated list of farmer details for a specific cooperative
@@ -92,3 +106,4 @@ func GetCustomerDeliveryDocumentDetailHandler(c *fiber.Ctx) error {
 func GetDeliveryDetailParticularHandler(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON("hi")
 }
+
