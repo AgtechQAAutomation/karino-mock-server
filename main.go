@@ -59,7 +59,7 @@ func main() {
 			router.Post("/:coopId/salesorders", controllers.CreateCustomerSalesOrderHandler)
 			router.Get("/:coopId/salesorders", controllers.GetCustomerSalesDetailHandler)
 			router.Get("/:coopId/salesorders/:orderId", controllers.GetCustomerSalesOrderDetailsHandler)
-			router.Get("/:coopId/salesorders/deliverydocuments", controllers.GetDeliveryDetailWithinDateHandler)
+			router.Get("/:coopId/salesorders/deliverydocuments", controllers.GetCustomerDeliveryDocumentDetailHandler)
 			router.Get("/:coopId/salesorders/:orderId/deliverydocuments", controllers.GetDeliveryDetailParticularHandler)
 		})
 
