@@ -51,7 +51,7 @@ func CreateCustomerDeliveryDocumentDetailsHandler(c *fiber.Ctx) error {
 
 	deliverydocumenterr := initializers.DB.Where("order_id = ?", payload.OrderID).First(&deliverydocument).Error
 
-	if deliverydocumenterr != nil {
+	if deliverydocumenterr == nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"Message": "Delivery Documents already Created for the OrderId"})
 	}
 
