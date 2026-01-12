@@ -1,26 +1,23 @@
 package controllers
 
 import (
-	"fmt"
 	"math"
 	"regexp"
 	"strconv"
+	"fmt"
 	"time"
-
 	// "log"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 
 	// "github.com/shyamsundaar/karino-mock-server/models/delivery"
 	// "gorm.io/gorm"
 	// "github.com/gin-gonic/gin"
-	"context"
-
 	"github.com/shyamsundaar/karino-mock-server/initializers"
 	"github.com/shyamsundaar/karino-mock-server/models/delivery"
-	"github.com/shyamsundaar/karino-mock-server/models/sales"
+	"context"
 	"github.com/shyamsundaar/karino-mock-server/query"
+	"github.com/shyamsundaar/karino-mock-server/models/sales"
 )
 
 func GenerateNextDeliveryDocumentCode(
@@ -47,6 +44,7 @@ func GenerateNextDeliveryDocumentCode(
 	// ✅ incrementing number
 	return fmt.Sprintf("GT2 2025/%d", next), nil
 }
+
 
 func GenerateAndSetNextERPItemIdGen(
 	ctx context.Context,
@@ -105,10 +103,6 @@ func GenerateAndSetNextERPItemIdGen(
 	}
 
 	return newErpSalesOrderCode, nil
-}
-
-func GenerateNextDeliveryDocumentID() string {
-	return uuid.New().String()
 }
 
 // CreateCustomerDeliveryDocumentDetailsHandler handles POST /spic_to_erp/customers/:coopId/salesorders/deliverydocuments
@@ -201,33 +195,34 @@ func CreateCustomerDeliveryDocumentDetailsHandler(c *fiber.Ctx) error {
 	ctx := context.Background()
 	q := query.Use(initializers.DB)
 
-	for _, document := range chunks {
-		deliveryDocCode, err := GenerateNextDeliveryDocumentCode(ctx, q)
-		deliverydocumentId := GenerateNextOrderItemTempID()
-		if err != nil {
+		
+	for docIndex, document := range chunks {
+	deliveryDocCode, err := GenerateNextDeliveryDocumentCode(ctx, q)
+	if err != nil {
+		return err
+	}
+
+	for _, item := range document {
+
+		deliveryItem := delivery.CreateDeliveryDocuments{
+			CoopID:               coopId,
+			ErpSalesOrderCode:    payload.ErpSalesOrderCode,
+			OrderID:              payload.OrderID,
+
+			DeliveryDocumentID:   strconv.Itoa(docIndex + 1),
+			DeliveryDocumentCode: deliveryDocCode, 
+
+			OrderItemID:          item.OrderItemID,
+			CreatedAt:            &now,
+			UpdatedAt:            &now,
+		}
+
+		if err := initializers.DB.Create(&deliveryItem).Error; err != nil {
 			return err
 		}
-
-		for _, item := range document {
-
-			deliveryItem := delivery.CreateDeliveryDocuments{
-				CoopID:            coopId,
-				ErpSalesOrderCode: payload.ErpSalesOrderCode,
-				OrderID:           payload.OrderID,
-
-				DeliveryDocumentID:   deliverydocumentId,
-				DeliveryDocumentCode: deliveryDocCode,
-
-				OrderItemID: item.OrderItemID,
-				CreatedAt:   &now,
-				UpdatedAt:   &now,
-			}
-
-			if err := initializers.DB.Create(&deliveryItem).Error; err != nil {
-				return err
-			}
-		}
 	}
+}
+
 
 	// for docIndex, document := range chunks { // Each delivery doc
 	// 	for _, item := range document { // Each item inside doc
@@ -245,7 +240,7 @@ func CreateCustomerDeliveryDocumentDetailsHandler(c *fiber.Ctx) error {
 	// 		initializers.DB.Create(&deliveryItem)
 	// 	}
 	// }
-
+	
 	// Response
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"deliveryDocuments": chunks,
@@ -271,16 +266,7 @@ func GetCustomerDeliveryDocumentDetailHandler(c *fiber.Ctx) error {
 	coopId := c.Params("coopId")
 	updatedFrom := c.Query("updatedFrom")
 	updatedTo := c.Query("updatedTo")
-	//var salesorder []sales.SalesOrder
-
-	type SalesWithDelivery struct {
-		TempID            string `gorm:"column:temp_id"`
-		ErpSalesOrderId   string `gorm:"column:erp_sales_order_id"`
-		ErpSalesOrderCode string `gorm:"column:erp_sales_order_code"`
-		OrderID           string `gorm:"column:order_id"`
-		// ErpDeliveryDocumentCode string `gorm:"column:erp_delivery_document_code"`
-	}
-	var results []SalesWithDelivery
+	var salesorder []sales.SalesOrder
 
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "10"))
@@ -291,10 +277,10 @@ func GetCustomerDeliveryDocumentDetailHandler(c *fiber.Ctx) error {
 	var totalRecords int64
 
 	query := initializers.DB.
-		Table("sales_orders").
-		Select("sales_orders.temp_id, sales_orders.erp_sales_order_id, sales_orders.erp_sales_order_code, sales_orders.order_id").
-		Joins("JOIN delivery_documents ON delivery_documents.order_id = sales_orders.order_id").
-		Where("sales_orders.coop_id = ?", coopId)
+		Model(&sales.SalesOrder{}).
+		Where("coop_id = ?", coopId)
+
+	query.Count(&totalRecords)
 
 	if updatedFrom != "" && updatedTo != "" {
 		fromTime, err := time.Parse(time.RFC3339, updatedFrom)
@@ -310,26 +296,25 @@ func GetCustomerDeliveryDocumentDetailHandler(c *fiber.Ctx) error {
 				"message": "Invalid updatedTo format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)",
 			})
 		}
-		query = query.Where("delivery_documents.updated_at >= ? AND delivery_documents.updated_at <= ?", fromTime, toTime)
+
+		query = query.Where("updated_at>= ? AND updated_at<= ?", fromTime, toTime)
 	}
 
-	query.Select("COUNT(DISTINCT sales_orders.order_id)").Count(&totalRecords)
-
 	if err := query.
-		Select("sales_orders.temp_id, sales_orders.erp_sales_order_id, sales_orders.erp_sales_order_code, sales_orders.order_id").
-		Group("sales_orders.order_id").
 		Limit(limit).
 		Offset(offset).
-		Scan(&results).Error; err != nil {
+		Find(&salesorder).Error; err != nil {
+
 		return c.Status(fiber.StatusBadGateway).JSON(sales.ErrorSalesOrderResponse{
 			Success: false,
 			Message: err.Error(),
 		})
 	}
+
 	totalPages := int(math.Ceil(float64(totalRecords) / float64(limit)))
 
 	data := make([]delivery.DeliverydocumentsListResponse, 0)
-	for _, f := range results {
+	for _, f := range salesorder {
 		data = append(data, delivery.DeliverydocumentsListResponse{
 			TempERPSalesOrderId: f.TempID,
 			ErpSalesOrderId:     f.ErpSalesOrderId,
@@ -349,7 +334,6 @@ func GetCustomerDeliveryDocumentDetailHandler(c *fiber.Ctx) error {
 			HasNext:     page < totalPages,
 		},
 	})
-
 }
 
 // GetDeliveryDetailParticularHandler handles GET /spic_to_erp/customers/:coopId/salesorders/:orderId/deliverydocuments
@@ -363,21 +347,82 @@ func GetCustomerDeliveryDocumentDetailHandler(c *fiber.Ctx) error {
 // @Success      200    {object}  delivery.DeliveryNotesResponse
 // @Router       /spic_to_erp/customers/{coopId}/salesorders/{orderId}/deliverydocuments [get]
 func GetDeliveryDetailParticularHandler(c *fiber.Ctx) error {
-
-	var salesorder []sales.SalesOrder
-
-	data := make([]delivery.DeliverySalesOrder, 0)
-
-	for _, f := range salesorder {
-		data = append(data, delivery.DeliverySalesOrder{
-			TempERPSalesOrderId: f.TempID,
-			ERPSalesOrderId:     f.ErpSalesOrderId,
-			ERPSalesOrderCode:   f.ErpSalesOrderCode,
-			SPICSalesOrderId:    f.OrderID,
-			ERPItemID:           f.CreatedAt.Format("2006-01-02T15:04:05Z"),
-			OrderItemID:         f.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+	coopId := c.Params("coopId")
+	orderID := c.Params("orderId")
+	if orderID == "" {
+		return c.Status(400).JSON(fiber.Map{
+			"success": false,
+			"message": "order_id is required",
 		})
 	}
+	var order sales.SalesOrder
+	if err := initializers.DB.
+		Where("order_id = ? AND coop_id = ?", orderID, coopId).
+		First(&order).Error; err != nil {
 
-	return c.Status(fiber.StatusOK).JSON(delivery.DeliveryNotesResponse{})
+		return c.Status(404).JSON(fiber.Map{
+			"success": false,
+			"message": "Sales order not found",
+		})
+	}
+	var orderItems []sales.SalesOrderItem
+	if err := initializers.DB.
+		Where("order_id = ?", orderID).
+		Find(&orderItems).Error; err != nil {
+
+		return c.Status(500).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to fetch order items",
+		})
+	}
+	var deliveryDocs []delivery.CreateDeliveryDocuments
+	if err := initializers.DB.
+		Where("order_id = ? AND coop_id = ?", orderID, coopId).
+		Find(&deliveryDocs).Error; err != nil {
+
+		return c.Status(500).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to fetch delivery documents",
+		})
+	}
+	deliveryMap := make(map[string][]delivery.CreateDeliveryDocuments)
+
+	for _, doc := range deliveryDocs {
+		deliveryMap[doc.DeliveryDocumentCode] =
+			append(deliveryMap[doc.DeliveryDocumentCode], doc)
+	}
+	var response delivery.DeliveryNotesResponse
+
+	for docCode, docs := range deliveryMap {
+
+		note := delivery.DeliveryNote{
+			ERPDeliveryDocumentId:   docs[0].DeliveryDocumentID,
+			ERPDeliveryDocumentCode: docCode,
+			ERPDeliveryDocumentDate: *docs[0].CreatedAt,
+		}
+
+		for _, d := range docs {
+			for _, item := range orderItems {
+				if item.OrderItemID == d.OrderItemID {
+
+					note.Items = append(note.Items, delivery.DeliveryItem{
+						ERPItemID2:        item.ErpItemID2,
+						StockKeepingUnit: item.StockKeepingUnit,
+						Quantity:         item.Quantity,
+						SalesOrder: delivery.DeliverySalesOrder{
+							TempERPSalesOrderId: order.TempID,
+							ERPSalesOrderId:     order.ErpSalesOrderId,
+							ERPSalesOrderCode:   order.ErpSalesOrderCode,
+							SPICSalesOrderId:    order.OrderID,
+							ERPItemID:           item.ErpItemID,
+							OrderItemID:         item.OrderItemID,
+						},
+					})
+				}
+			}
+		}
+
+		response.DeliveryNotes = append(response.DeliveryNotes, note)
+	}
+	return c.Status(200).JSON(response)
 }

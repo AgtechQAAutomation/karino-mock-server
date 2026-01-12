@@ -14,7 +14,7 @@ type DeliveryNote struct {
 }
 
 type DeliveryItem struct {
-	ERPItemID          string            `json:"erpItemID"`
+	ERPItemID2          string            `json:"erpItemID"`
 	StockKeepingUnit   string            `json:"stock_keeping_unit"`
 	Quantity           float64           `json:"quantity"`
 	SalesOrder         DeliverySalesOrder `json:"salesOrder"`
