@@ -40,8 +40,6 @@ func GenerateNextDeliveryDocumentCode(
 			next = n + 1
 		}
 	}
-
-	// ✅ incrementing number
 	return fmt.Sprintf("GT2 2025/%d", next), nil
 }
 
