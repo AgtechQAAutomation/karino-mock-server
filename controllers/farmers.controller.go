@@ -774,7 +774,7 @@ func GetCustomerDetailHandler(c *fiber.Ctx) error {
 	}
 	var farmer models.FarmerDetails
 	err := initializers.DB.
-		Where("coop_id = ? AND farmer_id = ?", coopId, farmerId).
+		Where("coop_id = ? AND farmer_id = ? AND customer_id IS NOT NULL AND customer_id != '' ", coopId, farmerId).
 		First(&farmer).Error
 
 	if err != nil {
@@ -853,7 +853,7 @@ func GetVendorDetailHandler(c *fiber.Ctx) error {
 	var farmer models.FarmerDetails
 
 	err := initializers.DB.
-		Where("coop_id = ? AND farmer_id = ?", coopId, farmerId).
+		Where("coop_id = ? AND farmer_id = ? AND vendor_id IS NOT NULL AND vendor_id != '' ", coopId, farmerId).
 		First(&farmer).Error
 
 	if err != nil {
