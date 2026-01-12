@@ -13,9 +13,7 @@ func ApiKeyAuth(c *fiber.Ctx) error {
 	clientKey := c.Get("APIKey")
 
 	if clientKey == "" || clientKey != expectedKey {
-		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
-			"message": "Invalid or missing API Key",
-		})
+		return c.Status(fiber.StatusUnauthorized).SendString(`"Invalid or missing API Key"`)
 	}
 	return c.Next()
 }

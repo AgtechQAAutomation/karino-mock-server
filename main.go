@@ -41,7 +41,7 @@ func main() {
 		AllowMethods: "GET,POST,PUT,PATCH,DELETE,OPTIONS",
 	}))
 
-	// Swagger Route (Accessible at http://localhost:8000/swagger/index.html)
+	// Swagger Route (Accessible at http://localhost:8001/swagger/index.html)
 	app.Get("/swagger/*", swagger.HandlerDefault)
 
 	// Mount API routes
@@ -55,9 +55,15 @@ func main() {
 			router.Post("/:coopId/farmers", controllers.CreateCustomerDetailHandler)
 			router.Get("/:coopId/farmers", controllers.FindCustomerDetailsHandler)
 			router.Get("/:coopId/farmers/:farmerId", controllers.GetCustomerDetailHandler)
+
 			router.Post("/:coopId/salesorders", controllers.CreateCustomerSalesOrderHandler)
 			router.Get("/:coopId/salesorders", controllers.GetCustomerSalesDetailHandler)
-			router.Get("/:coopId/salesorders/:salesordersId", controllers.GetCustomerSalesOrderDetailsHandler)
+
+			router.Post("/:coopId/salesorders/deliverydocuments", controllers.CreateCustomerDeliveryDocumentDetailsHandler)
+			router.Get("/:coopId/salesorders/deliverydocuments", controllers.GetCustomerDeliveryDocumentDetailHandler)
+
+			router.Get("/:coopId/salesorders/:orderId", controllers.GetCustomerSalesOrderDetailsHandler)
+			router.Get("/:coopId/salesorders/:orderId/deliverydocuments", controllers.GetDeliveryDetailParticularHandler)
 		})
 
 		router.Route("/vendors", func(router fiber.Router) {

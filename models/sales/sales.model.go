@@ -3,8 +3,9 @@ package sales
 import (
 	"time"
 
-	"github.com/go-playground/validator/v10"
+	// "github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
+
 	"gorm.io/gorm"
 )
 
@@ -18,6 +19,9 @@ type SalesOrder struct {
 	ID     uint   `gorm:"primaryKey;autoIncrement"`
 	TempID string `gorm:"column:temp_id;not null" json:"tempId"`
 	CoopID string `gorm:"column:coop_id;not null" json:"coopId"`
+
+	ErpSalesOrderId   string `gorm:"column:erp_sales_order_id;size:64" json:"erp_sales_order_id"`
+	ErpSalesOrderCode string `gorm:"column:erp_sales_order_code;size:64" json:"erp_sales_order_code"`
 
 	OrderID     string `gorm:"column:order_id;size:64;uniqueIndex" json:"order_id"`
 	OrderNumber string `gorm:"column:order_number;size:64" json:"order_number"`
@@ -51,13 +55,14 @@ type SalesOrder struct {
 	CustomZone1ID int `gorm:"column:custom_zone1_id" json:"custom_zone1_id"`
 	CustomZone2ID int `gorm:"column:custom_zone2_id" json:"custom_zone2_id"`
 
-	PickupDate *time.Time `gorm:"column:pickup_date;default:null" json:"pickup_date"`
-	CreatedBy  string     `gorm:"column:created_by;size:64" json:"created_by"`
+	PickupDate string `gorm:"column:pickup_date;default:null" json:"pickup_date"`
+	CreatedBy  string `gorm:"column:created_by;size:64" json:"created_by"`
 
 	CreatedAt *time.Time `gorm:"default:null"`
 	UpdatedAt *time.Time `gorm:"default:null"`
 
-	OrderItems []SalesOrderItem `gorm:"foreignKey:OrderID;references:OrderID" json:"order_items"`
+	NoofOrderItems int              `gorm:"column:noof_order_items" json:"noofOrderItems"`
+	OrderItems     []SalesOrderItem `gorm:"foreignKey:OrderID;references:OrderID" json:"order_items"`
 }
 
 func (SalesOrder) TableName() string {
@@ -94,6 +99,8 @@ type SalesOrderItem struct {
 
 	OrderItemID     string `gorm:"column:order_item_id;size:64" json:"order_item_id"`
 	OrderItemNumber string `gorm:"column:order_item_number;size:64" json:"order_item_number"`
+	ErpItemID		string `gorm:"column:erp_item_id;size:64" json:"erp_item_id"`
+	ErpItemID2		string `gorm:"column:erp_item_id_2;size:64" json:"erp_item_id_2"`
 
 	StockKeepingUnit string `gorm:"column:stock_keeping_unit;size:64" json:"stock_keeping_unit"`
 	ProductGroup     string `gorm:"column:product_group;size:64" json:"product_group"`
@@ -122,7 +129,7 @@ func (SalesOrderItem) TableName() string {
 // =======================
 //
 
-var validate = validator.New()
+// var validate = validator.New()
 
 type ErrorResponse struct {
 	Field string `json:"field"`
@@ -173,5 +180,5 @@ type CreateSalesOrderSchema struct {
 	PickupDate string `json:"pickup_date"`
 	CreatedBy  string `json:"created_by"`
 
-	OrderItems []SalesOrderItem `json:"orderItems"`
+	OrderItems []SalesOrderItem `json:"order_items"`
 }
