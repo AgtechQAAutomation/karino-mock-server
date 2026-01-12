@@ -266,7 +266,16 @@ func GetCustomerDeliveryDocumentDetailHandler(c *fiber.Ctx) error {
 	coopId := c.Params("coopId")
 	updatedFrom := c.Query("updatedFrom")
 	updatedTo := c.Query("updatedTo")
-	var salesorder []sales.SalesOrder
+	//var salesorder []sales.SalesOrder
+
+	type SalesWithDelivery struct {
+		TempID            string `gorm:"column:temp_id"`
+		ErpSalesOrderId   string `gorm:"column:erp_sales_order_id"`
+		ErpSalesOrderCode string `gorm:"column:erp_sales_order_code"`
+		OrderID           string `gorm:"column:order_id"`
+		// ErpDeliveryDocumentCode string `gorm:"column:erp_delivery_document_code"`
+	}
+	var results []SalesWithDelivery
 
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "10"))
@@ -277,10 +286,10 @@ func GetCustomerDeliveryDocumentDetailHandler(c *fiber.Ctx) error {
 	var totalRecords int64
 
 	query := initializers.DB.
-		Model(&sales.SalesOrder{}).
-		Where("coop_id = ?", coopId)
-
-	query.Count(&totalRecords)
+		Table("sales_orders").
+		Select("sales_orders.temp_id, sales_orders.erp_sales_order_id, sales_orders.erp_sales_order_code, sales_orders.order_id").
+		Joins("JOIN delivery_documents ON delivery_documents.order_id = sales_orders.order_id").
+		Where("sales_orders.coop_id = ?", coopId)
 
 	if updatedFrom != "" && updatedTo != "" {
 		fromTime, err := time.Parse(time.RFC3339, updatedFrom)
@@ -296,25 +305,26 @@ func GetCustomerDeliveryDocumentDetailHandler(c *fiber.Ctx) error {
 				"message": "Invalid updatedTo format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)",
 			})
 		}
-
-		query = query.Where("updated_at>= ? AND updated_at<= ?", fromTime, toTime)
+		query = query.Where("delivery_documents.updated_at >= ? AND delivery_documents.updated_at <= ?", fromTime, toTime)
 	}
 
+	query.Select("COUNT(DISTINCT sales_orders.order_id)").Count(&totalRecords)
+
 	if err := query.
+		Select("sales_orders.temp_id, sales_orders.erp_sales_order_id, sales_orders.erp_sales_order_code, sales_orders.order_id").
+		Group("sales_orders.order_id").
 		Limit(limit).
 		Offset(offset).
-		Find(&salesorder).Error; err != nil {
-
+		Scan(&results).Error; err != nil {
 		return c.Status(fiber.StatusBadGateway).JSON(sales.ErrorSalesOrderResponse{
 			Success: false,
 			Message: err.Error(),
 		})
 	}
-
 	totalPages := int(math.Ceil(float64(totalRecords) / float64(limit)))
 
 	data := make([]delivery.DeliverydocumentsListResponse, 0)
-	for _, f := range salesorder {
+	for _, f := range results {
 		data = append(data, delivery.DeliverydocumentsListResponse{
 			TempERPSalesOrderId: f.TempID,
 			ErpSalesOrderId:     f.ErpSalesOrderId,
@@ -334,6 +344,7 @@ func GetCustomerDeliveryDocumentDetailHandler(c *fiber.Ctx) error {
 			HasNext:     page < totalPages,
 		},
 	})
+
 }
 
 // GetDeliveryDetailParticularHandler handles GET /spic_to_erp/customers/:coopId/salesorders/:orderId/deliverydocuments
