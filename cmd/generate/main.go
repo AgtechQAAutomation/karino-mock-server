@@ -1,8 +1,10 @@
 package main
 
 import (
+	"github.com/shyamsundaar/karino-mock-server/models/delivery"
 	"github.com/shyamsundaar/karino-mock-server/models/farmers"
 	"github.com/shyamsundaar/karino-mock-server/models/sales"
+
 	// "github.com/shyamsundaar/karino-mock-server/models/sales"
 	"gorm.io/gen"
 )
@@ -19,6 +21,7 @@ func main() {
 		models.FarmerDetails{},
 		sales.SalesOrder{},
 		sales.SalesOrderItem{},
+		delivery.CreateDeliveryDocuments{},
 	)
 
 	// Build the type-safe DAO

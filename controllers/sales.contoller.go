@@ -18,7 +18,7 @@ import (
 	models "github.com/shyamsundaar/karino-mock-server/models/farmers"
 	"github.com/shyamsundaar/karino-mock-server/models/products"
 	"github.com/shyamsundaar/karino-mock-server/models/sales"
-
+	"github.com/google/uuid"
 	// "github.com/google/uuid"
 	// "github.com/shyamsundaar/karino-mock-server/models/farmers"
 	// "karino-mock-server/query"
@@ -145,6 +145,11 @@ func GenerateAndSetNextErpSalesOrderCodeGen(
 	return newErpSalesOrderCode, nil
 }
 
+func GenerateNextOrderItemTempID() string {
+	return uuid.New().String()
+}
+
+
 // CreateCustomerSalesDetailHandler handles POST /spic_to_erp/customers/:coopId/salesorders
 // @Summary      Create a new sales order detail
 // @Description  Create a new record in the sales orders table
@@ -270,17 +275,25 @@ func CreateCustomerSalesOrderHandler(c *fiber.Ctx) error {
 		if err := tx.Create(&newOrder).Error; err != nil {
 			return err
 		}
-
+	// ctx := context.Background()
+	// q := query.Use(initializers.DB)
 		// Map & save order items
 		if len(payload.OrderItems) > 0 {
 			var items []sales.SalesOrderItem
-
+			
 			for _, item := range payload.OrderItems {
+				// erpItemID , err := GenerateNextOrderItemTempID(ctx, q)
+				// if err != nil {
+				// 	return err
+				// }
+
 				items = append(items, sales.SalesOrderItem{
 					OrderID:              newOrder.OrderID,
 					OrderItemID:          item.OrderItemID,
 					OrderItemNumber:      item.OrderItemNumber,
 					StockKeepingUnit:     item.StockKeepingUnit,
+					ErpItemID:			 GenerateNextOrderItemTempID(),
+					ErpItemID2:			 GenerateNextOrderItemTempID(),
 					ProductGroup:         item.ProductGroup,
 					InputItemID:          item.InputItemID,
 					InputItemName:        item.InputItemName,
