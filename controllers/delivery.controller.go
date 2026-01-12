@@ -139,14 +139,19 @@ func CreateCustomerDeliveryDocumentDetailsHandler(c *fiber.Ctx) error {
 // @Param        updatedTo     query     string  false  " "
 // @Param        page          query     int     false  "Page number"    default(1)
 // @Param        limit         query     int     false  "Items per page" default(10)
-// @Success      200    {object}  sales.ListSalesOrderResponse
+// @Success      200    {object}  delivery.ListDeliveryDocumentsResponse
 // @Router       /spic_to_erp/customers/{coopId}/salesorders/deliverydocuments [get]
 func GetCustomerDeliveryDocumentDetailHandler(c *fiber.Ctx) error {
 	coopId := c.Params("coopId")
+	updatedFrom := c.Query("updatedFrom")
+	updatedTo := c.Query("updatedTo")
 	var salesorder []sales.SalesOrder
 
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "10"))
+	if limit < 0 {
+		limit = 10
+	}
 	offset := (page - 1) * limit
 	var totalRecords int64
 
@@ -155,6 +160,24 @@ func GetCustomerDeliveryDocumentDetailHandler(c *fiber.Ctx) error {
 		Where("coop_id = ?", coopId)
 
 	query.Count(&totalRecords)
+
+	if updatedFrom != "" && updatedTo != "" {
+		fromTime, err := time.Parse(time.RFC3339, updatedFrom)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"message": "Invalid updatedFrom format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)",
+			})
+		}
+
+		toTime, err := time.Parse(time.RFC3339, updatedTo)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"message": "Invalid updatedTo format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)",
+			})
+		}
+
+		query = query.Where("updated_at>= ? AND updated_at<= ?", fromTime, toTime)
+	}
 
 	if err := query.
 		Limit(limit).
@@ -169,21 +192,19 @@ func GetCustomerDeliveryDocumentDetailHandler(c *fiber.Ctx) error {
 
 	totalPages := int(math.Ceil(float64(totalRecords) / float64(limit)))
 
-	var data []sales.SalesOrderListResponse
+	data := make([]delivery.DeliverydocumentsListResponse, 0)
 	for _, f := range salesorder {
-		data = append(data, sales.SalesOrderListResponse{
+		data = append(data, delivery.DeliverydocumentsListResponse{
 			TempERPSalesOrderId: f.TempID,
 			ErpSalesOrderId:     f.ErpSalesOrderId,
 			ErpSalesOrderCode:   f.ErpSalesOrderCode,
 			SpicSalesOrderId:    f.OrderID,
-			CreatedAt:           f.CreatedAt.Format("2006-01-02T15:04:05Z"),
-			UpdatedAt:           f.UpdatedAt.Format("2006-01-02T15:04:05Z"),
 		})
 	}
 
-	return c.Status(fiber.StatusOK).JSON(sales.ListSalesOrderResponse{
+	return c.Status(fiber.StatusOK).JSON(delivery.ListDeliveryDocumentsResponse{
 		Data: data,
-		Pagination: sales.PaginationInfo{
+		Pagination: delivery.PaginationInfo{
 			Page:        page,
 			Limit:       limit,
 			TotalItems:  int(totalRecords),
