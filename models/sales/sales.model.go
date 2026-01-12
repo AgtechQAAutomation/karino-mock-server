@@ -99,6 +99,8 @@ type SalesOrderItem struct {
 
 	OrderItemID     string `gorm:"column:order_item_id;size:64" json:"order_item_id"`
 	OrderItemNumber string `gorm:"column:order_item_number;size:64" json:"order_item_number"`
+	ErpItemID		string `gorm:"column:erp_item_id;size:64" json:"erp_item_id"`
+	ErpItemID2		string `gorm:"column:erp_item_id_2;size:64" json:"erp_item_id_2"`
 
 	StockKeepingUnit string `gorm:"column:stock_keeping_unit;size:64" json:"stock_keeping_unit"`
 	ProductGroup     string `gorm:"column:product_group;size:64" json:"product_group"`
