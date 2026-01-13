@@ -1,7 +1,7 @@
 package models
 
 type FarmerCustomerResponse struct {
-	TempERPCustomerID string `json:"tempERPCustomerId"`
+	TempERPCustomerID string `json:"tempErpCustomerId"`
 	ErpCustomerId     string `json:"erpCustomerId"`
 	// ErpVendorId       string `json:"erpVendorId"`
 	FarmerId          string `json:"farmerId"`
@@ -11,7 +11,7 @@ type FarmerCustomerResponse struct {
 }
 
 type FarmerVendorResponse struct {
-	TempERPCustomerID string `json:"tempERPCustomerId"`
+	TempERPCustomerID string `json:"tempErpVendorId"`
 	// ErpCustomerId     string `json:"erpCustomerId"`
 	ErpVendorId       string `json:"erpVendorId"`
 	FarmerId          string `json:"farmerId"`

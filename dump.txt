@@ -299,3 +299,59 @@ func PostCustomerSalesOrdersHandler(c *fiber.Ctx) error {
 		// },
 	})
 }
+
+
+// func GenerateAndSetNextVendorIDGen(
+// 	ctx context.Context,
+// 	q *query.Query,
+// 	detailID uint,
+// ) (string, error) {
+
+// 	fd := q.FarmerDetails.WithContext(ctx)
+
+// 	// 1. Get current row
+// 	row, err := fd.Where(q.FarmerDetails.ID.Eq(detailID)).First()
+// 	if err != nil {
+// 		return "", err
+// 	}
+
+// 	if row.VendorID != "" {
+// 		return row.VendorID, nil
+// 	}
+
+// 	// 2. Get last non-empty vendor_id
+// 	last, err := fd.
+// 		Where(q.FarmerDetails.VendorID.Neq("")).
+// 		Order(q.FarmerDetails.ID.Desc()).
+// 		First()
+
+// 	next := 1
+// 	if err == nil && last.VendorID != "" {
+// 		re := regexp.MustCompile(`\d+$`)
+// 		if m := re.FindString(last.VendorID); m != "" {
+// 			n, _ := strconv.Atoi(m)
+// 			next = n + 1
+// 		}
+// 	}
+
+// 	newVendorID := fmt.Sprintf("F26%05d", next)
+
+// 	// 3. Business delay
+// 	time.Sleep(time.Duration(initializers.AppConfig.TimeSeconds) * time.Second)
+// 	// 4. Update only if still empty
+// 	_, err = fd.
+// 		Where(
+// 			q.FarmerDetails.ID.Eq(detailID),
+// 			q.FarmerDetails.VendorID.Eq(""),
+// 		).
+// 		UpdateColumnSimple(
+// 			q.FarmerDetails.VendorID.Value(newVendorID),
+// 			q.FarmerDetails.VendorIDUpdateAt.Value(time.Now()),
+// 		)
+
+// 	if err != nil {
+// 		return "", err
+// 	}
+
+// 	return newVendorID, nil
+// }

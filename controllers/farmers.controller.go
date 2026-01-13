@@ -50,6 +50,7 @@ func GenerateAndSetNextCustomerIDGen(
 		return "", err
 	}
 
+	// If already assigned, return existing ID
 	if row.CustomerID != "" {
 		return row.CustomerID, nil
 	}
@@ -60,21 +61,25 @@ func GenerateAndSetNextCustomerIDGen(
 		Order(q.FarmerDetails.ID.Desc()).
 		First()
 
+	// Start from C26000 → numeric = 0
 	next := 1
+
 	if err == nil && last.CustomerID != "" {
-		re := regexp.MustCompile(`\d+$`)
+		// Extract only the last 5 digits
+		re := regexp.MustCompile(`(\d{5})$`)
 		if m := re.FindString(last.CustomerID); m != "" {
 			n, _ := strconv.Atoi(m)
 			next = n + 1
 		}
 	}
 
+	// Generate ID → C26 + 5-digit counter
 	newCustomerID := fmt.Sprintf("C26%05d", next)
 
-	// 3. Business delay
+	// Optional business delay
 	time.Sleep(time.Duration(initializers.AppConfig.TimeSeconds) * time.Second)
 
-	// 4. Update only if still empty
+	// Update only if still empty (safe update)
 	_, err = fd.
 		Where(
 			q.FarmerDetails.ID.Eq(detailID),
@@ -92,6 +97,7 @@ func GenerateAndSetNextCustomerIDGen(
 	return newCustomerID, nil
 }
 
+
 func GenerateAndSetNextVendorIDGen(
 	ctx context.Context,
 	q *query.Query,
@@ -101,11 +107,14 @@ func GenerateAndSetNextVendorIDGen(
 	fd := q.FarmerDetails.WithContext(ctx)
 
 	// 1. Get current row
-	row, err := fd.Where(q.FarmerDetails.ID.Eq(detailID)).First()
+	row, err := fd.
+		Where(q.FarmerDetails.ID.Eq(detailID)).
+		First()
 	if err != nil {
 		return "", err
 	}
 
+	// If already assigned, return existing VendorID
 	if row.VendorID != "" {
 		return row.VendorID, nil
 	}
@@ -116,20 +125,25 @@ func GenerateAndSetNextVendorIDGen(
 		Order(q.FarmerDetails.ID.Desc()).
 		First()
 
+	// Start counter
 	next := 1
+
 	if err == nil && last.VendorID != "" {
-		re := regexp.MustCompile(`\d+$`)
+		// Extract last 5 digits only
+		re := regexp.MustCompile(`(\d{5})$`)
 		if m := re.FindString(last.VendorID); m != "" {
 			n, _ := strconv.Atoi(m)
 			next = n + 1
 		}
 	}
 
+	// Generate Vendor ID → V26 + 5-digit number
 	newVendorID := fmt.Sprintf("F26%05d", next)
 
-	// 3. Business delay
+	// Optional business delay
 	time.Sleep(time.Duration(initializers.AppConfig.TimeSeconds) * time.Second)
-	// 4. Update only if still empty
+
+	// Update only if still empty (race-safe)
 	_, err = fd.
 		Where(
 			q.FarmerDetails.ID.Eq(detailID),
@@ -147,6 +161,7 @@ func GenerateAndSetNextVendorIDGen(
 	return newVendorID, nil
 }
 
+
 // CreateCustomerDetailHandler handles POST /spic_to_erp/customers/:coopId/farmers
 // @Summary      Create a new farmer detail
 // @Description  Create a new record in the details table
@@ -155,7 +170,7 @@ func GenerateAndSetNextVendorIDGen(
 // @Produce      json
 // @Param        coopId  path      string                            true  "Cooperative ID"
 // @Param        detail  body      models.CreateDetailSchema          true  "Create Detail Payload"
-// @Success      201     {object}  models.CreateSuccessFarmerResponse
+// @Success      201     {object}  models.CreateSuccessFarmerCustomerResponse
 // @Router       /spic_to_erp/customers/{coopId}/farmers [post]
 func CreateCustomerDetailHandler(c *fiber.Ctx) error {
 	coopId := c.Params("coopId")
@@ -199,12 +214,12 @@ func CreateCustomerDetailHandler(c *fiber.Ctx) error {
 		}
 
 		return c.Status(fiber.StatusCreated).JSON(
-			models.CreateSuccessFarmerResponse{
+			models.CreateSuccessFarmerCustomerResponse{
 				Success: true,
-				Data: models.FarmerResponse{
+				Data: models.CreateFarmerCustomerResponse{
 					TempERPCustomerID: existingFarmer.TempID,
 					ErpCustomerId:     existingFarmer.CustomerID,
-					ErpVendorId:       existingFarmer.VendorID,
+					// ErpVendorId:       existingFarmer.VendorID,
 					FarmerId:          existingFarmer.FarmerID,
 					CreatedAt:         existingFarmer.CreatedAt.Format(time.RFC3339),
 					UpdatedAt:         existingFarmer.UpdatedAt.Format(time.RFC3339),
@@ -338,12 +353,12 @@ func CreateCustomerDetailHandler(c *fiber.Ctx) error {
 	// 9. RESPONSE
 	// ----------------------------------------------------
 	return c.Status(fiber.StatusOK).JSON(
-		models.CreateSuccessFarmerResponse{
+		models.CreateSuccessFarmerCustomerResponse{
 			Success: true,
-			Data: models.FarmerResponse{
+			Data: models.CreateFarmerCustomerResponse{
 				TempERPCustomerID: newDetail.TempID,
 				ErpCustomerId:     newDetail.CustomerID,
-				ErpVendorId:       newDetail.VendorID,
+				// ErpVendorId:       newDetail.VendorID,
 				FarmerId:          newDetail.FarmerID,
 				CreatedAt:         newDetail.CreatedAt.Format(time.RFC3339),
 				UpdatedAt:         newDetail.UpdatedAt.Format(time.RFC3339),
@@ -474,7 +489,7 @@ func FindCustomerDetailsHandler(c *fiber.Ctx) error {
 // @Produce      json
 // @Param        coopId  path      string                            true  "Cooperative ID"
 // @Param        detail  body      models.CreateDetailSchema          true  "Create Detail Payload"
-// @Success      201     {object}  models.CreateSuccessFarmerResponse
+// @Success      201     {object}  models.CreateSuccessFarmerVendorResponse
 // @Router       /spic_to_erp/vendors/{coopId}/farmers [post]
 func CreateVendorDetailHandler(c *fiber.Ctx) error {
 	// 1. Get CoopID from URL Parameter
@@ -517,11 +532,11 @@ func CreateVendorDetailHandler(c *fiber.Ctx) error {
 		}
 
 		return c.Status(fiber.StatusCreated).JSON(
-			models.CreateSuccessFarmerResponse{
+			models.CreateSuccessFarmerVendorResponse{
 				Success: true,
-				Data: models.FarmerResponse{
+				Data: models.CreateFarmerVendorResponse{
 					TempERPCustomerID: existingFarmer.TempID,
-					ErpCustomerId:     existingFarmer.CustomerID,
+					// ErpCustomerId:     existingFarmer.CustomerID,
 					ErpVendorId:       existingFarmer.VendorID,
 					FarmerId:          existingFarmer.FarmerID,
 					CreatedAt:         existingFarmer.CreatedAt.Format(time.RFC3339),
@@ -536,11 +551,11 @@ func CreateVendorDetailHandler(c *fiber.Ctx) error {
 	// 4. BASIC VALIDATIONS
 	// ----------------------------------------------------
 	if payload.FarmerID == "" {
-		return SendCustomerErrorResponse(c, "You must provide a Farmer ID.", "")
+		return SendVendorErrorResponse(c, "You must provide a Farmer ID.", "")
 	}
 
 	if payload.FirstName == "" || payload.LastName == "" {
-		return SendCustomerErrorResponse(
+		return SendVendorErrorResponse(
 			c,
 			"You must provide the first and last name.",
 			payload.FarmerID,
@@ -548,7 +563,7 @@ func CreateVendorDetailHandler(c *fiber.Ctx) error {
 	}
 
 	if payload.FarmerKycID == "" && payload.ClubLeaderFarmerID == "" {
-		return SendCustomerErrorResponse(
+		return SendVendorErrorResponse(
 			c,
 			"Either farmer_kyc_id or clubLeaderFarmerId must be provided.",
 			payload.FarmerID,
@@ -556,7 +571,7 @@ func CreateVendorDetailHandler(c *fiber.Ctx) error {
 	}
 
 	if !isCoopAllowed(coopId) {
-		return SendCustomerErrorResponse(c, "The indicated cooperative does not exist.", payload.FarmerID)
+		return SendVendorErrorResponse(c, "The indicated cooperative does not exist.", payload.FarmerID)
 	}
 
 	// ----------------------------------------------------
@@ -579,7 +594,7 @@ func CreateVendorDetailHandler(c *fiber.Ctx) error {
 			Error
 
 		if err == nil {
-			return SendCustomerErrorResponse(
+			return SendVendorErrorResponse(
 				c,
 				"Farmer with the given KYC ID "+payload.FarmerKycID+" already exists.",
 				payload.FarmerID,
@@ -596,7 +611,7 @@ func CreateVendorDetailHandler(c *fiber.Ctx) error {
 		Error
 
 	if err == nil {
-		return SendCustomerErrorResponse(
+		return SendVendorErrorResponse(
 			c,
 			"The Farmer ID "+payload.FarmerID+
 				" is already registered in the cooperative "+coopId+".",
@@ -653,11 +668,11 @@ func CreateVendorDetailHandler(c *fiber.Ctx) error {
 	// 10. RESPONSE
 	// ----------------------------------------------------
 	return c.Status(fiber.StatusOK).JSON(
-		models.CreateSuccessFarmerResponse{
+		models.CreateSuccessFarmerVendorResponse{
 			Success: true,
-			Data: models.FarmerResponse{
+			Data: models.CreateFarmerVendorResponse{
 				TempERPCustomerID: newDetail.TempID,
-				ErpCustomerId:     newDetail.CustomerID,
+				// ErpCustomerId:     newDetail.CustomerID,
 				ErpVendorId:       newDetail.VendorID,
 				FarmerId:          newDetail.FarmerID,
 				CreatedAt:         newDetail.CreatedAt.Format(time.RFC3339),
@@ -666,6 +681,21 @@ func CreateVendorDetailHandler(c *fiber.Ctx) error {
 			},
 		},
 	)
+}
+
+func SendVendorErrorResponse(c *fiber.Ctx, msg string, farmerId string) error {
+	now := time.Now().UTC()
+	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+		"success": false,
+		"data": fiber.Map{
+			"tempERPCustomerId": "0",
+			"erpVendorId":     "",
+			"farmerId":          farmerId,
+			"createdAt":         now,
+			"updatedAt":         now,
+			"Message":           msg,
+		},
+	})
 }
 
 // FindDetails handles GET /spic_to_erp/vendors/:coopId/farmers
