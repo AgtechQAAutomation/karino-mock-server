@@ -213,7 +213,7 @@ func CreateCustomerDetailHandler(c *fiber.Ctx) error {
 			}(existingFarmer.ID)
 		}
 
-		return c.Status(fiber.StatusCreated).JSON(
+		return c.Status(fiber.StatusOK).JSON(
 			models.CreateSuccessFarmerCustomerResponse{
 				Success: true,
 				Data: models.CreateFarmerCustomerResponse{
