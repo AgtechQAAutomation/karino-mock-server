@@ -531,7 +531,7 @@ func CreateVendorDetailHandler(c *fiber.Ctx) error {
 			}(existingFarmer.ID)
 		}
 
-		return c.Status(fiber.StatusCreated).JSON(
+		return c.Status(fiber.StatusOK).JSON(
 			models.CreateSuccessFarmerVendorResponse{
 				Success: true,
 				Data: models.CreateFarmerVendorResponse{
