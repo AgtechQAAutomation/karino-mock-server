@@ -1,23 +1,27 @@
 package controllers
 
 import (
+	"crypto/rand"
+	"fmt"
 	"math"
 	"regexp"
 	"strconv"
-	"fmt"
 	"time"
+
 	// "log"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 
 	// "github.com/shyamsundaar/karino-mock-server/models/delivery"
 	// "gorm.io/gorm"
 	// "github.com/gin-gonic/gin"
+	"context"
+
 	"github.com/shyamsundaar/karino-mock-server/initializers"
 	"github.com/shyamsundaar/karino-mock-server/models/delivery"
-	"context"
-	"github.com/shyamsundaar/karino-mock-server/query"
 	"github.com/shyamsundaar/karino-mock-server/models/sales"
+	"github.com/shyamsundaar/karino-mock-server/query"
 )
 
 func GenerateNextDeliveryDocumentCode(
@@ -42,7 +46,6 @@ func GenerateNextDeliveryDocumentCode(
 	}
 	return fmt.Sprintf("GT2 2025/%d", next), nil
 }
-
 
 func GenerateAndSetNextERPItemIdGen(
 	ctx context.Context,
@@ -101,6 +104,17 @@ func GenerateAndSetNextERPItemIdGen(
 	}
 
 	return newErpSalesOrderCode, nil
+}
+
+func GenerateNextDeliveryDocumentID() string {
+	return uuid.New().String()
+}
+
+func generate9DigitID() string {
+	b := make([]byte, 4) // 4 bytes is enough for a 9-digit number
+	rand.Read(b)
+	// Generate a number between 100,000,000 and 999,999,999
+	return fmt.Sprintf("%09d", (uint32(b[0])|uint32(b[1])<<8|uint32(b[2])<<16|uint32(b[3])<<24)%900000000+100000000)
 }
 
 // CreateCustomerDeliveryDocumentDetailsHandler handles POST /spic_to_erp/customers/:coopId/salesorders/deliverydocuments
@@ -193,34 +207,35 @@ func CreateCustomerDeliveryDocumentDetailsHandler(c *fiber.Ctx) error {
 	ctx := context.Background()
 	q := query.Use(initializers.DB)
 
-		
-	for docIndex, document := range chunks {
-	deliveryDocCode, err := GenerateNextDeliveryDocumentCode(ctx, q)
-	if err != nil {
-		return err
-	}
-
-	for _, item := range document {
-
-		deliveryItem := delivery.CreateDeliveryDocuments{
-			CoopID:               coopId,
-			ErpSalesOrderCode:    payload.ErpSalesOrderCode,
-			OrderID:              payload.OrderID,
-
-			DeliveryDocumentID:   strconv.Itoa(docIndex + 1),
-			DeliveryDocumentCode: deliveryDocCode, 
-
-			OrderItemID:          item.OrderItemID,
-			CreatedAt:            &now,
-			UpdatedAt:            &now,
-		}
-
-		if err := initializers.DB.Create(&deliveryItem).Error; err != nil {
+	for _, document := range chunks {
+		deliveryDocCode, err := GenerateNextDeliveryDocumentCode(ctx, q)
+		deliverydocumentId := GenerateNextOrderItemTempID()
+		if err != nil {
 			return err
 		}
-	}
-}
 
+		for _, item := range document {
+			stockKeepingUnit := generate9DigitID()
+
+			deliveryItem := delivery.CreateDeliveryDocuments{
+				CoopID:            coopId,
+				ErpSalesOrderCode: payload.ErpSalesOrderCode,
+				OrderID:           payload.OrderID,
+
+				DeliveryDocumentID:   deliverydocumentId,
+				DeliveryDocumentCode: deliveryDocCode,
+
+				OrderItemID:      item.OrderItemID,
+				StockKeppingUnit: stockKeepingUnit,
+				CreatedAt:        &now,
+				UpdatedAt:        &now,
+			}
+
+			if err := initializers.DB.Create(&deliveryItem).Error; err != nil {
+				return err
+			}
+		}
+	}
 
 	// for docIndex, document := range chunks { // Each delivery doc
 	// 	for _, item := range document { // Each item inside doc
@@ -238,7 +253,7 @@ func CreateCustomerDeliveryDocumentDetailsHandler(c *fiber.Ctx) error {
 	// 		initializers.DB.Create(&deliveryItem)
 	// 	}
 	// }
-	
+
 	// Response
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
 		"deliveryDocuments": chunks,
@@ -415,7 +430,7 @@ func GetDeliveryDetailParticularHandler(c *fiber.Ctx) error {
 				if item.OrderItemID == d.OrderItemID {
 
 					note.Items = append(note.Items, delivery.DeliveryItem{
-						ERPItemID2:        item.ErpItemID2,
+						ERPItemID2:       item.ErpItemID2,
 						StockKeepingUnit: item.StockKeepingUnit,
 						Quantity:         item.Quantity,
 						SalesOrder: delivery.DeliverySalesOrder{

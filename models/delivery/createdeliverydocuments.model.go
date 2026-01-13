@@ -14,6 +14,7 @@ type CreateDeliveryDocuments struct {
 	DeliveryDocumentID   string     `json:"delivery_document_id" gorm:"size:64;index;not null"`
 	DeliveryDocumentCode string     `json:"delivery_document_code" gorm:"size:64;index;not null"`
 	OrderItemID          string     `json:"order_item_id" gorm:"size:64;index;not null"`
+	StockKeppingUnit     string     `json:"stock_keeping_unit" gorm:"size:64;index;not null"`
 	CreatedAt            *time.Time `json:"created_at"`
 	UpdatedAt            *time.Time `json:"updated_at"`
 }
