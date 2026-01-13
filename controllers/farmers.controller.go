@@ -69,7 +69,7 @@ func GenerateAndSetNextCustomerIDGen(
 		}
 	}
 
-	newCustomerID := fmt.Sprintf("CUST%05d", next)
+	newCustomerID := fmt.Sprintf("C26%05d", next)
 
 	// 3. Business delay
 	time.Sleep(time.Duration(initializers.AppConfig.TimeSeconds) * time.Second)
@@ -125,7 +125,7 @@ func GenerateAndSetNextVendorIDGen(
 		}
 	}
 
-	newVendorID := fmt.Sprintf("VEND%05d", next)
+	newVendorID := fmt.Sprintf("F26%05d", next)
 
 	// 3. Business delay
 	time.Sleep(time.Duration(initializers.AppConfig.TimeSeconds) * time.Second)
