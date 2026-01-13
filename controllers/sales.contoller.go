@@ -26,6 +26,7 @@ import (
 	"gorm.io/gorm"
 )
 
+
 func GenerateAndSetNextErpSalesOrderIDGen(
 	ctx context.Context,
 	q *query.Query,
@@ -149,7 +150,6 @@ func GenerateNextOrderItemTempID() string {
 	return uuid.New().String()
 }
 
-
 // CreateCustomerSalesDetailHandler handles POST /spic_to_erp/customers/:coopId/salesorders
 // @Summary      Create a new sales order detail
 // @Description  Create a new record in the sales orders table
@@ -176,6 +176,10 @@ func CreateCustomerSalesOrderHandler(c *fiber.Ctx) error {
 	}
 
 	// 3. Basic validations (keep minimal like farmer handler)
+	if !isCoopAllowed(coopId) {
+		return SendSalesErrorResponse(c, "The indicated cooperative does not exist.", payload.OrderID)
+	}
+ 
 	if payload.OrderID == "" {
 		return SendSalesErrorResponse(c, "You must specify the OrderID.", payload.OrderID)
 	}
@@ -187,10 +191,7 @@ func CreateCustomerSalesOrderHandler(c *fiber.Ctx) error {
 	}
 
 	if payload.FarmerID == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(sales.ErrorSalesOrderResponse{
-			Success: false,
-			Message: "farmer_id is required",
-		})
+		return SendSalesErrorResponse(c, "You must provide the FarmerID.", payload.OrderID)
 	}
 
 	if payload.ContractID == "" {
@@ -218,7 +219,7 @@ func CreateCustomerSalesOrderHandler(c *fiber.Ctx) error {
 		var product products.Product
 		productErr := initializers.DB.Where("product_code = ?", item.ProductGroup).First(&product).Error
 		if productErr != nil {
-			return SendSalesErrorResponse(c, "You must specify the item code or group.", payload.OrderID)
+			return SendSalesErrorResponse(c, "The indicated itemcode/group does not exist ().", payload.OrderID)
 		}
 
 		if item.Quantity <= 0 {
@@ -345,7 +346,7 @@ func CreateCustomerSalesOrderHandler(c *fiber.Ctx) error {
 			SpicSalesOrderId:    newOrder.OrderID,
 			CreatedAt:           newOrder.CreatedAt.Format("2006-01-02T15:04:05Z"),
 			UpdatedAt:           newOrder.UpdatedAt.Format("2006-01-02T15:04:05Z"),
-			Message:             "Sales order created successfully",
+			Message:             "Document saved with success.",
 		},
 	}
 
@@ -386,7 +387,11 @@ func GetCustomerSalesDetailHandler(c *fiber.Ctx) error {
 	updatedFrom := c.Query("updatedFrom")
 	updatedTo := c.Query("updatedTo")
 	var salesorder []sales.SalesOrder
-
+	if !isCoopAllowed(coopId) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"Message": "The indicated cooperative does not exist.",
+			})
+	}
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	limit, _ := strconv.Atoi(c.Query("limit", "10"))
 	if limit <= 0 {
@@ -399,19 +404,19 @@ func GetCustomerSalesDetailHandler(c *fiber.Ctx) error {
 	query := initializers.DB.
 		Model(&sales.SalesOrder{}).
 		Where("coop_id = ?", coopId)
-
+	
 	if updatedFrom != "" && updatedTo != "" {
 		fromTime, err := time.Parse(time.RFC3339, updatedFrom)
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"message": "Invalid updatedFrom format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)",
+				"Message": "Invalid updatedFrom format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)",
 			})
 		}
 
 		toTime, err := time.Parse(time.RFC3339, updatedTo)
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"message": "Invalid updatedTo format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)",
+				"Message": "Invalid updatedTo format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)",
 			})
 		}
 

@@ -280,6 +280,12 @@ func GetCustomerDeliveryDocumentDetailHandler(c *fiber.Ctx) error {
 	updatedFrom := c.Query("updatedFrom")
 	updatedTo := c.Query("updatedTo")
 	//var salesorder []sales.SalesOrder
+	
+	if !isCoopAllowed(coopId) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"Message": "The indicated cooperative does not exist.",
+			})
+	}
 
 	type SalesWithDelivery struct {
 		TempID            string `gorm:"column:temp_id"`
@@ -373,11 +379,18 @@ func GetCustomerDeliveryDocumentDetailHandler(c *fiber.Ctx) error {
 func GetDeliveryDetailParticularHandler(c *fiber.Ctx) error {
 	coopId := c.Params("coopId")
 	orderID := c.Params("orderId")
-	if orderID == "" {
-		return c.Status(400).JSON(fiber.Map{
-			"success": false,
-			"message": "order_id is required",
-		})
+	emptydata := make([]sales.SalesOrderListResponse, 0)
+
+	// if orderID == "" {
+	// 	return c.Status(400).JSON(fiber.Map{
+	// 		"success": false,
+	// 		"message": "order_id is required",
+	// 	})
+	// }
+	if !isCoopAllowed(coopId) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"Message": "The indicated cooperative does not exist.",
+			})
 	}
 	var order sales.SalesOrder
 	if err := initializers.DB.
@@ -385,8 +398,7 @@ func GetDeliveryDetailParticularHandler(c *fiber.Ctx) error {
 		First(&order).Error; err != nil {
 
 		return c.Status(404).JSON(fiber.Map{
-			"success": false,
-			"message": "Sales order not found",
+			"deliverynotes": emptydata,
 		})
 	}
 	var orderItems []sales.SalesOrderItem
