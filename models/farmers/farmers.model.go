@@ -24,8 +24,8 @@ type FarmerDetails struct {
 	RegionPartID                int        `json:"regionPartId"`
 	SettlementID                int        `json:"settlementId"`
 	SettlementPartID            int        `json:"settlementPartId"`
-	CustomGeographyStructure1ID string     `json:"custom_geography_structure1_id"`
-	CustomGeographyStructure2ID string     `json:"custom_geography_structure2_id"`
+	CustomGeographyStructure1ID int     `json:"custom_geography_structure1_id"`
+	CustomGeographyStructure2ID int     `json:"custom_geography_structure2_id"`
 	ZipCode                     string     `json:"zipCode"`
 	FarmerKycTypeID             int        `json:"farmer_kyc_type_id"`
 	FarmerKycType               string     `json:"farmer_kyc_type"`
@@ -117,8 +117,8 @@ type CreateDetailSchema struct {
 	RegionPartID       int    `json:"regionPartID" example:"0"`
 	SettlementID       int    `json:"settlementID" example:"0"`
 	SettlementPartID   int    `json:"settlementPartID" example:"0"`
-	CustomGeo1ID       string `json:"custom_geography_structure1_id" example:"0"`
-	CustomGeo2ID       string `json:"custom_geography_structure2_id" example:"0"`
+	CustomGeo1ID       int `json:"custom_geography_structure1_id" example:"0"`
+	CustomGeo2ID       int `json:"custom_geography_structure2_id" example:"0"`
 	ZipCode            string `json:"ZipCode" example:"string"`
 	FarmerKycTypeID    int    `json:"farmer_kyc_type_id" example:"0"`
 	FarmerKycType      string `json:"farmer_kyc_type" example:"string"`
