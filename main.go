@@ -64,6 +64,10 @@ func main() {
 
 			router.Get("/:coopId/salesorders/:orderId", controllers.GetCustomerSalesOrderDetailsHandler)
 			router.Get("/:coopId/salesorders/:orderId/deliverydocuments", controllers.GetDeliveryDetailParticularHandler)
+
+			router.Post("/:coopId/deliverydocuments/:deliveryNoteId/proof", controllers.CreateDeliveryDocumentsProofHandler)
+			router.Get("/:coopId/deliverydocuments/invoices", controllers.GetDeliveryDocumentsProofHandler)
+			router.Get("/:coopId/deliverydocuments/:deliveryNoteId/invoices", controllers.GetDeliveryDocumentsProofParticularHandler)
 		})
 
 		router.Route("/vendors", func(router fiber.Router) {
