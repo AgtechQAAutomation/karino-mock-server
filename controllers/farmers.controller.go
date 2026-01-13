@@ -337,7 +337,7 @@ func CreateCustomerDetailHandler(c *fiber.Ctx) error {
 	// ----------------------------------------------------
 	// 9. RESPONSE
 	// ----------------------------------------------------
-	return c.Status(fiber.StatusCreated).JSON(
+	return c.Status(fiber.StatusOK).JSON(
 		models.CreateSuccessFarmerResponse{
 			Success: true,
 			Data: models.FarmerResponse{
@@ -378,8 +378,8 @@ func SendCustomerErrorResponse(c *fiber.Ctx, msg string, farmerId string) error 
 // @Param        updatedFrom   query     string  false  " "
 // @Param        updatedTo     query     string  false  " "
 // @Param        page          query     int     false  "Page number"    default(1)
-// @Param        limit         query     int     false  "Items per page" default(10)
-// @Success      200    {object}  models.ListFarmersResponse
+// @Param        perPage         query     int     false  "Items per page" default(10)
+// @Success      200    {object}  models.ListFarmersCustomersResponse
 // @Router       /spic_to_erp/customers/{coopId}/farmers [get]
 func FindCustomerDetailsHandler(c *fiber.Ctx) error {
 	coopId := c.Params("coopId")
@@ -387,11 +387,11 @@ func FindCustomerDetailsHandler(c *fiber.Ctx) error {
 	updatedTo := c.Query("updatedTo")
 
 	page, _ := strconv.Atoi(c.Query("page", "1"))
-	limit, _ := strconv.Atoi(c.Query("limit", "10"))
-	if limit <= 0 {
-		limit = 10
+	perPage, _ := strconv.Atoi(c.Query("perPage", "10"))
+	if perPage <= 0 {
+		perPage = 10
 	}
-	offset := (page - 1) * limit
+	offset := (page - 1) * perPage
 
 	var farmers []models.FarmerDetails
 	var totalRecords int64
@@ -399,20 +399,26 @@ func FindCustomerDetailsHandler(c *fiber.Ctx) error {
 	query := initializers.DB.
 		Model(&models.FarmerDetails{}).
 		Where("coop_id = ? AND customer_id IS NOT NULL AND customer_id != '' ", coopId)
+	
+		if !isCoopAllowed(coopId){
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"Message": "The indicated cooperative does not exist",
+			})
+	}
 
 	if updatedFrom != "" && updatedTo != "" {
 
 		fromTime, err := time.Parse(time.RFC3339, updatedFrom)
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"message": "Invalid updatedFrom format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)",
+				"Message": "Invalid updatedFrom format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)",
 			})
 		}
 
 		toTime, err := time.Parse(time.RFC3339, updatedTo)
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"message": "Invalid updatedTo format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)",
+				"Message": "Invalid updatedTo format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)",
 			})
 		}
 
@@ -421,7 +427,7 @@ func FindCustomerDetailsHandler(c *fiber.Ctx) error {
 	query.Count(&totalRecords)
 
 	if err := query.
-		Limit(limit).
+		Limit(perPage).
 		Offset(offset).
 		Find(&farmers).Error; err != nil {
 
@@ -431,15 +437,15 @@ func FindCustomerDetailsHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	totalPages := int(math.Ceil(float64(totalRecords) / float64(limit)))
+	totalPages := int(math.Ceil(float64(totalRecords) / float64(perPage)))
 
 	// ✅ Map DB → RESPONSE MODEL
-	data := make([]models.FarmerResponse, 0)
+	data := make([]models.FarmerCustomerResponse, 0)
 	for _, f := range farmers {
-		data = append(data, models.FarmerResponse{
+		data = append(data, models.FarmerCustomerResponse{
 			ErpCustomerId:     f.CustomerID,
 			TempERPCustomerID: f.TempID,
-			ErpVendorId:       f.VendorID,
+			// ErpVendorId:       f.VendorID,
 			// TempErpVendorId:   f.TempVendorID, // if exists
 			FarmerId:  f.FarmerID,
 			CreatedAt: f.CreatedAt.Format("2006-01-02T15:04:05Z"),
@@ -447,11 +453,11 @@ func FindCustomerDetailsHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.Status(fiber.StatusOK).JSON(models.ListFarmersResponse{
+	return c.Status(fiber.StatusOK).JSON(models.ListFarmersCustomersResponse{
 		Data: data,
 		Pagination: models.PaginationInfo{
 			Page:        page,
-			Limit:       limit,
+			Limit:       perPage,
 			TotalItems:  int(totalRecords),
 			TotalPages:  totalPages,
 			HasPrevious: page > 1,
@@ -646,7 +652,7 @@ func CreateVendorDetailHandler(c *fiber.Ctx) error {
 	// ----------------------------------------------------
 	// 10. RESPONSE
 	// ----------------------------------------------------
-	return c.Status(fiber.StatusCreated).JSON(
+	return c.Status(fiber.StatusOK).JSON(
 		models.CreateSuccessFarmerResponse{
 			Success: true,
 			Data: models.FarmerResponse{
@@ -672,8 +678,8 @@ func CreateVendorDetailHandler(c *fiber.Ctx) error {
 // @Param        updatedFrom   query     string  false  " "
 // @Param        updatedTo     query     string  false  " "
 // @Param        page          query     int     false  "Page number"    default(1)
-// @Param        limit         query     int     false  "Items per page" default(10)
-// @Success      200    {object}  models.ListFarmersResponse
+// @Param        perPage         query     int     false  "Items per page" default(10)
+// @Success      200    {object}  models.ListFarmersVendorsResponse
 // @Router       /spic_to_erp/vendors/{coopId}/farmers [get]
 func FindVendorDetailsHandler(c *fiber.Ctx) error {
 	coopId := c.Params("coopId")
@@ -681,11 +687,11 @@ func FindVendorDetailsHandler(c *fiber.Ctx) error {
 	updatedTo := c.Query("updatedTo")
 
 	page, _ := strconv.Atoi(c.Query("page", "1"))
-	limit, _ := strconv.Atoi(c.Query("limit", "10"))
-	if limit <= 0 {
-		limit = 10
+	perPage, _ := strconv.Atoi(c.Query("perPage", "10"))
+	if perPage <= 0 {
+		perPage = 10
 	}
-	offset := (page - 1) * limit
+	offset := (page - 1) * perPage
 
 	var farmers []models.FarmerDetails
 	var totalRecords int64
@@ -693,6 +699,12 @@ func FindVendorDetailsHandler(c *fiber.Ctx) error {
 	query := initializers.DB.
 		Model(&models.FarmerDetails{}).
 		Where("coop_id = ? AND vendor_id IS NOT NULL AND vendor_id != ''", coopId)
+	
+	if !isCoopAllowed(coopId){
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+				"Message": "The indicated cooperative does not exist",
+			})
+	}
 
 	if updatedFrom != "" && updatedTo != "" {
 
@@ -716,7 +728,7 @@ func FindVendorDetailsHandler(c *fiber.Ctx) error {
 	query.Count(&totalRecords)
 
 	if err := query.
-		Limit(limit).
+		Limit(perPage).
 		Offset(offset).
 		Find(&farmers).Error; err != nil {
 
@@ -726,13 +738,13 @@ func FindVendorDetailsHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	totalPages := int(math.Ceil(float64(totalRecords) / float64(limit)))
+	totalPages := int(math.Ceil(float64(totalRecords) / float64(perPage)))
 
 	// ✅ Map DB → RESPONSE MODEL
-	data := make([]models.FarmerResponse, 0)
+	data := make([]models.FarmerVendorResponse, 0)
 	for _, f := range farmers {
-		data = append(data, models.FarmerResponse{
-			ErpCustomerId:     f.CustomerID,
+		data = append(data, models.FarmerVendorResponse{
+			// ErpCustomerId:     f.CustomerID,
 			TempERPCustomerID: f.TempID,
 			ErpVendorId:       f.VendorID,
 			// TempErpVendorId:   f.TempVendorID, // if exists
@@ -742,11 +754,11 @@ func FindVendorDetailsHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.Status(fiber.StatusOK).JSON(models.ListFarmersResponse{
+	return c.Status(fiber.StatusOK).JSON(models.ListFarmersVendorsResponse{
 		Data: data,
 		Pagination: models.PaginationInfo{
 			Page:        page,
-			Limit:       limit,
+			Limit:       perPage,
 			TotalItems:  int(totalRecords),
 			TotalPages:  totalPages,
 			HasPrevious: page > 1,

@@ -379,7 +379,7 @@ func SendSalesErrorResponse(c *fiber.Ctx, message string, orderId string) error 
 // @Param        updatedFrom   query     string  false  " "
 // @Param        updatedTo     query     string  false  " "
 // @Param        page          query     int     false  "Page number"    default(1)
-// @Param        limit         query     int     false  "Items per page" default(10)
+// @Param        perPage         query     int     false  "Items per page" default(10)
 // @Success      200    {object}  sales.ListSalesOrderResponse
 // @Router       /spic_to_erp/customers/{coopId}/salesorders [get]
 func GetCustomerSalesDetailHandler(c *fiber.Ctx) error {
@@ -393,12 +393,12 @@ func GetCustomerSalesDetailHandler(c *fiber.Ctx) error {
 			})
 	}
 	page, _ := strconv.Atoi(c.Query("page", "1"))
-	limit, _ := strconv.Atoi(c.Query("limit", "10"))
-	if limit <= 0 {
-		limit = 10
+	perPage, _ := strconv.Atoi(c.Query("perPage", "10"))
+	if perPage <= 0 {
+		perPage = 10
 	}
 
-	offset := (page - 1) * limit
+	offset := (page - 1) * perPage
 	var totalRecords int64
 
 	query := initializers.DB.
@@ -426,7 +426,7 @@ func GetCustomerSalesDetailHandler(c *fiber.Ctx) error {
 	query.Count(&totalRecords)
 
 	if err := query.
-		Limit(limit).
+		Limit(perPage).
 		Offset(offset).
 		Find(&salesorder).Error; err != nil {
 
@@ -436,7 +436,7 @@ func GetCustomerSalesDetailHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	totalPages := int(math.Ceil(float64(totalRecords) / float64(limit)))
+	totalPages := int(math.Ceil(float64(totalRecords) / float64(perPage)))
 
 	data := make([]sales.SalesOrderListResponse, 0)
 	for _, f := range salesorder {
@@ -454,7 +454,7 @@ func GetCustomerSalesDetailHandler(c *fiber.Ctx) error {
 		Data: data,
 		Pagination: sales.PaginationInfo{
 			Page:        page,
-			Limit:       limit,
+			Limit:       perPage,
 			TotalItems:  int(totalRecords),
 			TotalPages:  totalPages,
 			HasPrevious: page > 1,

@@ -272,7 +272,7 @@ func CreateCustomerDeliveryDocumentDetailsHandler(c *fiber.Ctx) error {
 // @Param        updatedFrom   query     string  false  " "
 // @Param        updatedTo     query     string  false  " "
 // @Param        page          query     int     false  "Page number"    default(1)
-// @Param        limit         query     int     false  "Items per page" default(10)
+// @Param        perPage         query     int     false  "Items per page" default(10)
 // @Success      200    {object}  delivery.ListDeliveryDocumentsResponse
 // @Router       /spic_to_erp/customers/{coopId}/salesorders/deliverydocuments [get]
 func GetCustomerDeliveryDocumentDetailHandler(c *fiber.Ctx) error {
@@ -297,11 +297,11 @@ func GetCustomerDeliveryDocumentDetailHandler(c *fiber.Ctx) error {
 	var results []SalesWithDelivery
 
 	page, _ := strconv.Atoi(c.Query("page", "1"))
-	limit, _ := strconv.Atoi(c.Query("limit", "10"))
-	if limit < 0 {
-		limit = 10
+	perPage, _ := strconv.Atoi(c.Query("perPage", "10"))
+	if perPage < 0 {
+		perPage = 10
 	}
-	offset := (page - 1) * limit
+	offset := (page - 1) * perPage
 	var totalRecords int64
 
 	query := initializers.DB.
@@ -332,7 +332,7 @@ func GetCustomerDeliveryDocumentDetailHandler(c *fiber.Ctx) error {
 	if err := query.
 		Select("sales_orders.temp_id, sales_orders.erp_sales_order_id, sales_orders.erp_sales_order_code, sales_orders.order_id").
 		Group("sales_orders.order_id").
-		Limit(limit).
+		Limit(perPage).
 		Offset(offset).
 		Scan(&results).Error; err != nil {
 		return c.Status(fiber.StatusBadGateway).JSON(sales.ErrorSalesOrderResponse{
@@ -340,7 +340,7 @@ func GetCustomerDeliveryDocumentDetailHandler(c *fiber.Ctx) error {
 			Message: err.Error(),
 		})
 	}
-	totalPages := int(math.Ceil(float64(totalRecords) / float64(limit)))
+	totalPages := int(math.Ceil(float64(totalRecords) / float64(perPage)))
 
 	data := make([]delivery.DeliverydocumentsListResponse, 0)
 	for _, f := range results {
@@ -356,7 +356,7 @@ func GetCustomerDeliveryDocumentDetailHandler(c *fiber.Ctx) error {
 		Data: data,
 		Pagination: delivery.PaginationInfo{
 			Page:        page,
-			Limit:       limit,
+			Limit:       perPage,
 			TotalItems:  int(totalRecords),
 			TotalPages:  totalPages,
 			HasPrevious: page > 1,

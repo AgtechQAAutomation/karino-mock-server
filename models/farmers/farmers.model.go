@@ -4,7 +4,8 @@ import (
 	"time"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/google/uuid"
+	// "github.com/google/uuid"
+	"strconv"
 	"gorm.io/gorm"
 )
 
@@ -42,15 +43,35 @@ type FarmerDetails struct {
 
 // BeforeCreate Hook to handle any logic before saving to DB
 func (d *FarmerDetails) BeforeCreate(tx *gorm.DB) (err error) {
-	var now = time.Now()
-	if d.TempID == "" {
-		d.TempID = uuid.New().String()
+	now := time.Now()
+
+	// Fetch last TempID
+	var lastTempID string
+
+	err = tx.
+		Model(&FarmerDetails{}).
+		Select("temp_id").
+		Where("temp_id IS NOT NULL AND temp_id != ''").
+		Order("id DESC").
+		Limit(1).
+		Scan(&lastTempID).Error
+
+	// Default start value
+	next := 1000
+
+	if err == nil && lastTempID != "" {
+		if n, convErr := strconv.Atoi(lastTempID); convErr == nil {
+			next = n + 1
+		}
 	}
 
+	d.TempID = strconv.Itoa(next)
 	d.CreatedAt = now
 	d.UpdatedAt = now
+
 	return nil
 }
+
 
 // Initialize the validator once for the package
 var validate = validator.New()

@@ -30,7 +30,7 @@ func CreateDeliveryDocumentsProofHandler(c *fiber.Ctx) error{
 // @Param        updatedFrom   query     string  false  " "
 // @Param        updatedTo     query     string  false  " "
 // @Param        page          query     int     false  "Page number"    default(1)
-// @Param        limit         query     int     false  "Items per page" default(10)
+// @Param        perPage         query     int     false  "Items per page" default(10)
 // @Success      200    {object}  deliveryproof.ListDeliveryDocumentsResponse
 // @Router       /spic_to_erp/customers/{coopId}/deliverydocuments/invoices [get]
 func GetDeliveryDocumentsProofHandler(c *fiber.Ctx) error{

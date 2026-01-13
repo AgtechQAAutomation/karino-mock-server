@@ -2,25 +2,25 @@ package models
 
 // FarmerDetailResponse represents the detailed farmer view
 type FarmerDetailResponse struct {
-	FarmerID           string          `json:"farmerId"`
-	Name               string          `json:"name"`
-	MobileNumber       string          `json:"mobile_number"`
-	Cooperative        string          `json:"cooperative"`
-	SettlementID       int             `json:"settlementId"`
-	SettlementPartID   int             `json:"settlementPartId"`
-	ZipCode            string          `json:"zipCode"`
-	FarmerKycTypeID    int             `json:"farmer_kyc_type_id"`
-	FarmerKycType      string          `json:"farmer_kyc_type"`
-	FarmerKycID        string          `json:"farmer_kyc_id"`
-	ClubID             string          `json:"clubId"`
-	ClubLeaderFarmerID string          `json:"clubLeaderFarmerId"`
-	Message            string          `json:"message"`
-	EntityID           string          `json:"entityId"`
-	CustomerCode       string          `json:"customerCode"`
-	VendorCode         string          `json:"vendorCode"`
-	CreatedDate        string          `json:"createdAt"`
-	UpdatedDate        string          `json:"updatedAt"`
-	BankDetails        BankDetailsInfo `json:"bankDetails"`
+	FarmerID           string          `json:"FarmerID"`
+	Name               string          `json:"Name"`
+	MobileNumber       string          `json:"MobileNumber"`
+	Cooperative        string          `json:"Cooperative"`
+	SettlementID       int             `json:"SettlementID"`
+	SettlementPartID   int             `json:"SettlementPartID"`
+	ZipCode            string          `json:"ZipCode"`
+	FarmerKycTypeID    int             `json:"FarmerKYCTypeID"`
+	FarmerKycType      string          `json:"FarmerKYCType"`
+	FarmerKycID        string          `json:"FarmerKYCID"`
+	ClubID             string          `json:"ClubID"`
+	ClubLeaderFarmerID string          `json:"ClubLeaderFarmerID"`
+	Message            string          `json:"Message"`
+	EntityID           string          `json:"EntityID"`
+	CustomerCode       string          `json:"CustomerCode"`
+	VendorCode         string          `json:"VendorCode"`
+	CreatedDate        string          `json:"CreatedDate"`
+	UpdatedDate        string          `json:"UpdatedDate"`
+	BankDetails        BankDetailsInfo `json:"BankDetails"`
 }
 
 // Nested object
