@@ -14,18 +14,18 @@ import (
 	// "database/sql"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
 	"github.com/shyamsundaar/karino-mock-server/initializers"
 	models "github.com/shyamsundaar/karino-mock-server/models/farmers"
 	"github.com/shyamsundaar/karino-mock-server/models/products"
 	"github.com/shyamsundaar/karino-mock-server/models/sales"
-	"github.com/google/uuid"
+
 	// "github.com/google/uuid"
 	// "github.com/shyamsundaar/karino-mock-server/models/farmers"
 	// "karino-mock-server/query"
 	"github.com/shyamsundaar/karino-mock-server/query"
 	"gorm.io/gorm"
 )
-
 
 func GenerateAndSetNextErpSalesOrderIDGen(
 	ctx context.Context,
@@ -46,7 +46,7 @@ func GenerateAndSetNextErpSalesOrderIDGen(
 	newErpSalesOrderID := uuid.New().String()
 
 	// 5. Business delay
-	time.Sleep(time.Duration(initializers.AppConfig.TimeSeconds) * time.Second)
+	time.Sleep(time.Duration(initializers.AppConfig.SalesTimeSeconds) * time.Second)
 
 	// 6. Update ONLY if still empty (race-condition safe)
 	_, err = so.
@@ -57,6 +57,7 @@ func GenerateAndSetNextErpSalesOrderIDGen(
 		UpdateColumnSimple(
 			q.SalesOrder.ErpSalesOrderId.Value(newErpSalesOrderID),
 			q.SalesOrder.UpdatedAt.Value(time.Now()),
+			q.SalesOrder.IdUpdatedAt.Value(time.Now()),
 		)
 
 	if err != nil {
@@ -116,6 +117,7 @@ func GenerateAndSetNextErpSalesOrderCodeGen(
 		UpdateColumnSimple(
 			q.SalesOrder.ErpSalesOrderCode.Value(newErpSalesOrderCode),
 			q.SalesOrder.UpdatedAt.Value(time.Now()),
+			q.SalesOrder.IdUpdatedAt.Value(time.Now()),
 		)
 
 	if err != nil {
@@ -158,7 +160,7 @@ func CreateCustomerSalesOrderHandler(c *fiber.Ctx) error {
 	if !isCoopAllowed(coopId) {
 		return SendSalesErrorResponse(c, "The indicated cooperative does not exist.", payload.OrderID)
 	}
- 
+
 	if payload.OrderID == "" {
 		return SendSalesErrorResponse(c, "You must specify the OrderID.", payload.OrderID)
 	}
@@ -255,12 +257,12 @@ func CreateCustomerSalesOrderHandler(c *fiber.Ctx) error {
 		if err := tx.Create(&newOrder).Error; err != nil {
 			return err
 		}
-	// ctx := context.Background()
-	// q := query.Use(initializers.DB)
+		// ctx := context.Background()
+		// q := query.Use(initializers.DB)
 		// Map & save order items
 		if len(payload.OrderItems) > 0 {
 			var items []sales.SalesOrderItem
-			
+
 			for _, item := range payload.OrderItems {
 				// erpItemID , err := GenerateNextOrderItemTempID(ctx, q)
 				// if err != nil {
@@ -272,8 +274,8 @@ func CreateCustomerSalesOrderHandler(c *fiber.Ctx) error {
 					OrderItemID:          item.OrderItemID,
 					OrderItemNumber:      item.OrderItemNumber,
 					StockKeepingUnit:     item.StockKeepingUnit,
-					ErpItemID:			 GenerateNextOrderItemTempID(),
-					ErpItemID2:			 GenerateNextOrderItemTempID(),
+					ErpItemID:            GenerateNextOrderItemTempID(),
+					ErpItemID2:           GenerateNextOrderItemTempID(),
 					ProductGroup:         item.ProductGroup,
 					InputItemID:          item.InputItemID,
 					InputItemName:        item.InputItemName,
@@ -368,8 +370,8 @@ func GetCustomerSalesDetailHandler(c *fiber.Ctx) error {
 	var salesorder []sales.SalesOrder
 	if !isCoopAllowed(coopId) {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"Message": "The indicated cooperative does not exist.",
-			})
+			"Message": "The indicated cooperative does not exist.",
+		})
 	}
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	perPage, _ := strconv.Atoi(c.Query("perPage", "10"))
@@ -382,8 +384,8 @@ func GetCustomerSalesDetailHandler(c *fiber.Ctx) error {
 
 	query := initializers.DB.
 		Model(&sales.SalesOrder{}).
-		Where("coop_id = ?", coopId)
-	
+		Where("coop_id = ? AND ((erp_sales_order_id IS NOT NULL  AND erp_sales_order_id != '')OR (erp_sales_order_code IS NOT NULL AND erp_sales_order_code != ''))", coopId)
+
 	if updatedFrom != "" && updatedTo != "" {
 		fromTime, err := time.Parse(time.RFC3339, updatedFrom)
 		if err != nil {
@@ -399,7 +401,7 @@ func GetCustomerSalesDetailHandler(c *fiber.Ctx) error {
 			})
 		}
 
-		query = query.Where("updated_at>= ? AND updated_at<= ?", fromTime, toTime)
+		query = query.Where("id_updated_at>= ? AND id_updated_at<= ?", fromTime, toTime)
 	}
 
 	query.Count(&totalRecords)
@@ -462,7 +464,7 @@ func GetCustomerSalesOrderDetailsHandler(c *fiber.Ctx) error {
 		return SendOrderIdErrorResponse(c, "The indicated cooperative does not exist.", orderId)
 	}
 
-	err := initializers.DB.Where("coop_id = ? AND order_id = ?", coopId, orderId).First(&salesOrder).Error
+	err := initializers.DB.Where("coop_id = ? AND order_id = ? ", coopId, orderId).First(&salesOrder).Error
 
 	if err != nil {
 		return SendOrderIdErrorResponse(c, "There is no order with the indicated OrderID.", orderId)
@@ -477,9 +479,9 @@ func GetCustomerSalesOrderDetailsHandler(c *fiber.Ctx) error {
 		SpicSalesOrderId:    salesOrder.OrderID,
 		CreatedAt:           time.Now().UTC().Format("2006-01-02T15:04:05Z"),
 		UpdatedAt:           time.Now().UTC().Format("2006-01-02T15:04:05Z"),
-		OrderValue:          12500.50,
-		TaxAmount:           2250.09,
-		TotalAmount:         14750.59,
+		OrderValue:          salesOrder.OrderValue,
+		TaxAmount:           salesOrder.TaxAmount,
+		TotalAmount:         salesOrder.TotalAmount,
 	}
 
 	return c.Status(fiber.StatusOK).JSON(response)
