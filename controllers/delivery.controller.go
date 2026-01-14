@@ -86,7 +86,7 @@ func GenerateAndSetNextERPItemIdGen(
 	newErpSalesOrderCode := fmt.Sprintf("ECL 2025/%d", next)
 
 	// 5. Business delay
-	time.Sleep(time.Duration(initializers.AppConfig.TimeSeconds) * time.Second)
+	time.Sleep(time.Duration(initializers.AppConfig.SalesTimeSeconds) * time.Second)
 
 	// 6. Update ONLY if still empty (race-condition safe)
 	_, err = so.
@@ -280,11 +280,11 @@ func GetCustomerDeliveryDocumentDetailHandler(c *fiber.Ctx) error {
 	updatedFrom := c.Query("updatedFrom")
 	updatedTo := c.Query("updatedTo")
 	//var salesorder []sales.SalesOrder
-	
+
 	if !isCoopAllowed(coopId) {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"Message": "The indicated cooperative does not exist.",
-			})
+			"Message": "The indicated cooperative does not exist.",
+		})
 	}
 
 	type SalesWithDelivery struct {
@@ -389,8 +389,8 @@ func GetDeliveryDetailParticularHandler(c *fiber.Ctx) error {
 	// }
 	if !isCoopAllowed(coopId) {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"Message": "The indicated cooperative does not exist.",
-			})
+			"Message": "The indicated cooperative does not exist.",
+		})
 	}
 	var order sales.SalesOrder
 	if err := initializers.DB.

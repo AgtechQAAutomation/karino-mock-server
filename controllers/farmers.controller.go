@@ -77,7 +77,7 @@ func GenerateAndSetNextCustomerIDGen(
 	newCustomerID := fmt.Sprintf("C26%05d", next)
 
 	// Optional business delay
-	time.Sleep(time.Duration(initializers.AppConfig.TimeSeconds) * time.Second)
+	time.Sleep(time.Duration(initializers.AppConfig.CustomerTimeSeconds) * time.Second)
 
 	// Update only if still empty (safe update)
 	_, err = fd.
@@ -96,7 +96,6 @@ func GenerateAndSetNextCustomerIDGen(
 
 	return newCustomerID, nil
 }
-
 
 func GenerateAndSetNextVendorIDGen(
 	ctx context.Context,
@@ -141,7 +140,7 @@ func GenerateAndSetNextVendorIDGen(
 	newVendorID := fmt.Sprintf("F26%05d", next)
 
 	// Optional business delay
-	time.Sleep(time.Duration(initializers.AppConfig.TimeSeconds) * time.Second)
+	time.Sleep(time.Duration(initializers.AppConfig.VendorTimeSeconds) * time.Second)
 
 	// Update only if still empty (race-safe)
 	_, err = fd.
@@ -160,7 +159,6 @@ func GenerateAndSetNextVendorIDGen(
 
 	return newVendorID, nil
 }
-
 
 // CreateCustomerDetailHandler handles POST /spic_to_erp/customers/:coopId/farmers
 // @Summary      Create a new farmer detail
@@ -220,10 +218,10 @@ func CreateCustomerDetailHandler(c *fiber.Ctx) error {
 					TempERPCustomerID: existingFarmer.TempID,
 					ErpCustomerId:     existingFarmer.CustomerID,
 					// ErpVendorId:       existingFarmer.VendorID,
-					FarmerId:          existingFarmer.FarmerID,
-					CreatedAt:         existingFarmer.CreatedAt.Format(time.RFC3339),
-					UpdatedAt:         existingFarmer.UpdatedAt.Format(time.RFC3339),
-					Message:           "Farmer detail created successfully",
+					FarmerId:  existingFarmer.FarmerID,
+					CreatedAt: existingFarmer.CreatedAt.Format(time.RFC3339),
+					UpdatedAt: existingFarmer.UpdatedAt.Format(time.RFC3339),
+					Message:   "Farmer detail created successfully",
 				},
 			},
 		)
@@ -359,10 +357,10 @@ func CreateCustomerDetailHandler(c *fiber.Ctx) error {
 				TempERPCustomerID: newDetail.TempID,
 				ErpCustomerId:     newDetail.CustomerID,
 				// ErpVendorId:       newDetail.VendorID,
-				FarmerId:          newDetail.FarmerID,
-				CreatedAt:         newDetail.CreatedAt.Format(time.RFC3339),
-				UpdatedAt:         newDetail.UpdatedAt.Format(time.RFC3339),
-				Message:           "Farmer detail created successfully",
+				FarmerId:  newDetail.FarmerID,
+				CreatedAt: newDetail.CreatedAt.Format(time.RFC3339),
+				UpdatedAt: newDetail.UpdatedAt.Format(time.RFC3339),
+				Message:   "Farmer detail created successfully",
 			},
 		},
 	)
@@ -414,11 +412,11 @@ func FindCustomerDetailsHandler(c *fiber.Ctx) error {
 	query := initializers.DB.
 		Model(&models.FarmerDetails{}).
 		Where("coop_id = ? AND customer_id IS NOT NULL AND customer_id != '' ", coopId)
-	
-		if !isCoopAllowed(coopId){
+
+	if !isCoopAllowed(coopId) {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"Message": "The indicated cooperative does not exist",
-			})
+			"Message": "The indicated cooperative does not exist",
+		})
 	}
 
 	if updatedFrom != "" && updatedTo != "" {
@@ -537,11 +535,11 @@ func CreateVendorDetailHandler(c *fiber.Ctx) error {
 				Data: models.CreateFarmerVendorResponse{
 					TempERPCustomerID: existingFarmer.TempID,
 					// ErpCustomerId:     existingFarmer.CustomerID,
-					ErpVendorId:       existingFarmer.VendorID,
-					FarmerId:          existingFarmer.FarmerID,
-					CreatedAt:         existingFarmer.CreatedAt.Format(time.RFC3339),
-					UpdatedAt:         existingFarmer.UpdatedAt.Format(time.RFC3339),
-					Message:           "Farmer detail created successfully",
+					ErpVendorId: existingFarmer.VendorID,
+					FarmerId:    existingFarmer.FarmerID,
+					CreatedAt:   existingFarmer.CreatedAt.Format(time.RFC3339),
+					UpdatedAt:   existingFarmer.UpdatedAt.Format(time.RFC3339),
+					Message:     "Farmer detail created successfully",
 				},
 			},
 		)
@@ -673,11 +671,11 @@ func CreateVendorDetailHandler(c *fiber.Ctx) error {
 			Data: models.CreateFarmerVendorResponse{
 				TempERPCustomerID: newDetail.TempID,
 				// ErpCustomerId:     newDetail.CustomerID,
-				ErpVendorId:       newDetail.VendorID,
-				FarmerId:          newDetail.FarmerID,
-				CreatedAt:         newDetail.CreatedAt.Format(time.RFC3339),
-				UpdatedAt:         newDetail.UpdatedAt.Format(time.RFC3339),
-				Message:           "Farmer detail created successfully",
+				ErpVendorId: newDetail.VendorID,
+				FarmerId:    newDetail.FarmerID,
+				CreatedAt:   newDetail.CreatedAt.Format(time.RFC3339),
+				UpdatedAt:   newDetail.UpdatedAt.Format(time.RFC3339),
+				Message:     "Farmer detail created successfully",
 			},
 		},
 	)
@@ -689,7 +687,7 @@ func SendVendorErrorResponse(c *fiber.Ctx, msg string, farmerId string) error {
 		"success": false,
 		"data": fiber.Map{
 			"tempERPCustomerId": "0",
-			"erpVendorId":     "",
+			"erpVendorId":       "",
 			"farmerId":          farmerId,
 			"createdAt":         now,
 			"updatedAt":         now,
@@ -729,11 +727,11 @@ func FindVendorDetailsHandler(c *fiber.Ctx) error {
 	query := initializers.DB.
 		Model(&models.FarmerDetails{}).
 		Where("coop_id = ? AND vendor_id IS NOT NULL AND vendor_id != ''", coopId)
-	
-	if !isCoopAllowed(coopId){
+
+	if !isCoopAllowed(coopId) {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"Message": "The indicated cooperative does not exist",
-			})
+			"Message": "The indicated cooperative does not exist",
+		})
 	}
 
 	if updatedFrom != "" && updatedTo != "" {
