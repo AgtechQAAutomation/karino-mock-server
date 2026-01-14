@@ -15,6 +15,21 @@ import (
 	_ "github.com/shyamsundaar/karino-mock-server/docs"
 )
 
+// @title ERP Farmer & Sales Order Integration API
+// @version 1.0
+// @description This is a sample CRUD API for managing Notes and Farmer Details
+// @termsOfService http://swagger.io/terms/
+// @contact.name API Support
+// @contact.email support@example.com
+// @license.name Apache 2.0
+// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
+// @securityDefinitions.apikey ApiKeyAuth
+// @in header
+// @name APIKey
+
+// @security ApiKeyAuth
+// @host localhost:8001
+// @BasePath /
 func main() {
 	app := fiber.New()
 

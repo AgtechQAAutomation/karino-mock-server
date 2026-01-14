@@ -2,7 +2,8 @@ package main
 
 import (
 	"github.com/shyamsundaar/karino-mock-server/models/delivery"
-	"github.com/shyamsundaar/karino-mock-server/models/farmers"
+	"github.com/shyamsundaar/karino-mock-server/models/deliveryproof"
+	models "github.com/shyamsundaar/karino-mock-server/models/farmers"
 	"github.com/shyamsundaar/karino-mock-server/models/sales"
 
 	// "github.com/shyamsundaar/karino-mock-server/models/sales"
@@ -22,6 +23,8 @@ func main() {
 		sales.SalesOrder{},
 		sales.SalesOrderItem{},
 		delivery.CreateDeliveryDocuments{},
+		deliveryproof.Waybill{},
+		deliveryproof.WaybillItem{},
 	)
 
 	// Build the type-safe DAO

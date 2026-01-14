@@ -397,7 +397,7 @@ func GetDeliveryDetailParticularHandler(c *fiber.Ctx) error {
 		Where("order_id = ? AND coop_id = ?", orderID, coopId).
 		First(&order).Error; err != nil {
 
-		return c.Status(404).JSON(fiber.Map{
+		return c.Status(200).JSON(fiber.Map{
 			"deliverynotes": emptydata,
 		})
 	}

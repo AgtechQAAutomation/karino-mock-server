@@ -6,6 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/shyamsundaar/karino-mock-server/initializers"
+
 	// "github.com/shyamsundaar/karino-mock-server/models/delivery"
 	"github.com/shyamsundaar/karino-mock-server/models/deliveryproof"
 
@@ -32,7 +33,7 @@ func GenerateAndSetNextERPproofIDGen() string {
 // @Param        detail  body      deliveryproof.CreateDeliveryDocumentProofSchema    true  "Create delivery document Proof Payload"
 // @Success      200    {object}  deliveryproof.CreateDocumentdeliveryProofSuccessResponse
 // @Router       /spic_to_erp/customers/{coopId}/deliverydocuments/{deliveryNoteId}/proof [post]
-func CreateDeliveryDocumentsProofHandler(c *fiber.Ctx) error{
+func CreateDeliveryDocumentsProofHandler(c *fiber.Ctx) error {
 	coopId := c.Params("coopId")
 
 	var payload *deliveryproof.CreateDocumentdeliveryProofSuccessResponse
@@ -42,21 +43,21 @@ func CreateDeliveryDocumentsProofHandler(c *fiber.Ctx) error{
 			"message": err.Error(),
 		})
 	}
-	
+
 	if !isCoopAllowed(coopId) {
 		return SendDocumentdeliveryProofErrorResponse(c, "The indicated cooperative does not exist.", payload.Data.OrderId)
 	}
-	
+
 	return c.Status(fiber.StatusOK).JSON(
-			deliveryproof.CreateDocumentdeliveryProofSuccessResponse{
-				Success: true,
-				Data: deliveryproof.CreateDocumentdeliveryProofResponse{
-					TempERPProofId: GenerateAndSetNextERPproofIDGen(),
-					OrderId:     payload.Data.OrderId,	
-					Message:     "Delivery Document proof created successfully",
-				},
+		deliveryproof.CreateDocumentdeliveryProofSuccessResponse{
+			Success: true,
+			Data: deliveryproof.CreateDocumentdeliveryProofResponse{
+				TempERPProofId: GenerateAndSetNextERPproofIDGen(),
+				OrderId:        payload.Data.OrderId,
+				Message:        "Delivery Document proof created successfully",
 			},
-		)
+		},
+	)
 }
 
 func SendDocumentdeliveryProofErrorResponse(c *fiber.Ctx, message string, orderId string) error {
@@ -64,8 +65,8 @@ func SendDocumentdeliveryProofErrorResponse(c *fiber.Ctx, message string, orderI
 		"success": false,
 		"data": fiber.Map{
 			"TempERPProofId": "",
-			"OrderId":     orderId,	
-			"Message":     message,
+			"OrderId":        orderId,
+			"Message":        message,
 		},
 	})
 }
@@ -92,8 +93,8 @@ func GetDeliveryDocumentsProofHandler(c *fiber.Ctx) error {
 
 	if !isCoopAllowed(coopId) {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"Message": "The indicated cooperative does not exist.",
-			})
+			"Message": "The indicated cooperative does not exist.",
+		})
 	}
 	page, _ := strconv.Atoi(c.Query("page", "1"))
 	perPage, _ := strconv.Atoi(c.Query("perPage", "10"))
@@ -105,9 +106,9 @@ func GetDeliveryDocumentsProofHandler(c *fiber.Ctx) error {
 	var totalRecords int64
 
 	query := initializers.DB.
-		Model(&deliveryproof.WaybillProof{}).
+		Model(&deliveryproof.WaybillItem{}).
 		Where("coop_id = ?", coopId)
-	
+
 	if updatedFrom != "" && updatedTo != "" {
 		fromTime, err := time.Parse(time.RFC3339, updatedFrom)
 		if err != nil {
@@ -134,7 +135,7 @@ func GetDeliveryDocumentsProofHandler(c *fiber.Ctx) error {
 		Find(&deliverydocuments).Error; err != nil {
 
 		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{
-			"Invoice" : emptydata,
+			"Invoice": emptydata,
 		})
 	}
 
@@ -143,8 +144,8 @@ func GetDeliveryDocumentsProofHandler(c *fiber.Ctx) error {
 	data := make([]deliveryproof.DocumentdeliveryProof, 0)
 	for _, f := range deliverydocuments {
 		data = append(data, deliveryproof.DocumentdeliveryProof{
-			ERPDeliveryDocumentId: f.ERPDeliveryDocumentId,
-			ERPDeliveryDocumentCode:     f.ERPDeliveryDocumentCode,	
+			ERPDeliveryDocumentId:   f.ERPDeliveryDocumentId,
+			ERPDeliveryDocumentCode: f.ERPDeliveryDocumentCode,
 		})
 	}
 
@@ -172,6 +173,6 @@ func GetDeliveryDocumentsProofHandler(c *fiber.Ctx) error {
 // @Param        deliveryNoteId path      string  true   " "
 // @Success      200    {object}  deliveryproof.InvoicesResponse
 // @Router       /spic_to_erp/customers/{coopId}/deliverydocuments/{deliveryNoteId}/proof [get]
-func GetDeliveryDocumentsProofParticularHandler(c *fiber.Ctx) error{
+func GetDeliveryDocumentsProofParticularHandler(c *fiber.Ctx) error {
 	return c.Status(200).JSON("response")
 }

@@ -31,10 +31,13 @@ func ConnectDB(config *Config) {
 	DB.Logger = logger.Default.LogMode(logger.Info)
 
 	log.Println("Running Migrations")
-	DB.AutoMigrate(&models.FarmerDetails{}, &sales.SalesOrder{}, &sales.SalesOrderItem{}, &products.Product{},
+	err = DB.AutoMigrate(&models.FarmerDetails{}, &sales.SalesOrder{}, &sales.SalesOrderItem{}, &products.Product{},
 		&delivery.CreateDeliveryDocuments{},
-		&deliveryproof.WaybillProof{}, &deliveryproof.WaybillItemProof{})
+		&deliveryproof.Waybill{}, &deliveryproof.WaybillItem{})
 	SeedInitialData(DB)
+	if err != nil {
+		log.Fatalf("Migration failed: %v", err)
+	}
 
 	log.Println("🚀 Connected Successfully to the Database")
 }
