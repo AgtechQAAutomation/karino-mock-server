@@ -65,6 +65,7 @@ import (
 type Waybill struct {
 	ID         uint   `gorm:"primaryKey;autoIncrement"`
 	ContractID string `gorm:"size:128"`
+	CoopID     string `gorm:"column:coop_id;not null" json:"coopId"`
 	// OrderID must be a string and unique to be used as a reference
 	OrderID              string `gorm:"column:order_id;size:64;uniqueIndex" json:"order_id"`
 	RegionID             int    `json:"region_id"`
@@ -102,8 +103,8 @@ type WaybillItem struct {
 	Quantity        float64 `json:"quantity"`
 	QuantityUnitKey string  `json:"quantity_unit_key"`
 
-	UnitPrice float64 `gorm:"type:decimal(10,2)" json:"unit_price"`
-	Price     float64 `gorm:"type:decimal(10,2)" json:"price"`
+	UnitPrice string `json:"unit_price"`
+	Price     string `json:"price"`
 
 	PriceUnitKey     string `gorm:"size:10" json:"price_unit_key"`
 	Status           string `gorm:"size:50" json:"status"`
