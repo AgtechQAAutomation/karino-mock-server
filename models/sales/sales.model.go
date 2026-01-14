@@ -2,9 +2,9 @@ package sales
 
 import (
 	"time"
-
+"strconv"
 	// "github.com/go-playground/validator/v10"
-	"github.com/google/uuid"
+	//"github.com/google/uuid"
 
 	"gorm.io/gorm"
 )
@@ -75,15 +75,34 @@ func (SalesOrder) TableName() string {
 // =======================
 //
 
-func (s *SalesOrder) BeforeCreate(tx *gorm.DB) (err error) {
-	now := time.Now().UTC()
+// BeforeCreate Hook to handle any logic before saving to DB
+func (d *SalesOrder) BeforeCreate(tx *gorm.DB) (err error) {
+	now := time.Now()
 
-	if s.TempID == "" {
-		s.TempID = uuid.New().String()
+	// Fetch last TempID
+	var lastTempID string
+
+	err = tx.
+		Model(&SalesOrder{}).
+		Select("temp_id").
+		Where("temp_id IS NOT NULL AND temp_id != ''").
+		Order("id DESC").
+		Limit(1).
+		Scan(&lastTempID).Error
+
+	// Default start value
+	next := 1000
+
+	if err == nil && lastTempID != "" {
+		if n, convErr := strconv.Atoi(lastTempID); convErr == nil {
+			next = n + 1
+		}
 	}
 
-	s.CreatedAt = &now
-	s.UpdatedAt = &now
+	d.TempID = strconv.Itoa(next)
+	d.CreatedAt = &now
+	d.UpdatedAt = &now
+
 	return nil
 }
 

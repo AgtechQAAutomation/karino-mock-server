@@ -437,7 +437,7 @@ func FindCustomerDetailsHandler(c *fiber.Ctx) error {
 			})
 		}
 
-		query = query.Where("updated_at>= ? AND updated_at<= ? ", fromTime, toTime)
+		query = query.Where("cust_id_update_at>= ? AND cust_id_update_at<= ? ", fromTime, toTime)
 	}
 	query.Count(&totalRecords)
 
@@ -752,7 +752,7 @@ func FindVendorDetailsHandler(c *fiber.Ctx) error {
 			})
 		}
 
-		query = query.Where("updated_at>= ? AND updated_at<= ? ", fromTime, toTime)
+		query = query.Where("vendor_id_update_at>= ? AND vendor_id_update_at<= ? ", fromTime, toTime)
 	}
 
 	query.Count(&totalRecords)

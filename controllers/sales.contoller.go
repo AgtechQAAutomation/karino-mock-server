@@ -32,39 +32,18 @@ func GenerateAndSetNextErpSalesOrderIDGen(
 	q *query.Query,
 	salesOrderID uint,
 ) (string, error) {
-
 	so := q.SalesOrder.WithContext(ctx)
 
 	// 1. Fetch current sales order row
-	row, err := so.
+	_, err := so.
 		Where(q.SalesOrder.ID.Eq(salesOrderID)).
 		First()
 	if err != nil {
 		return "", err
 	}
 
-	// 2. If already generated → return
-	if row.ErpSalesOrderId != "" {
-		return row.ErpSalesOrderId, nil
-	}
-
-	// 3. Fetch last non-empty ERP sales order ID
-	last, err := so.
-		Where(q.SalesOrder.ErpSalesOrderId.Neq("")).
-		Order(q.SalesOrder.ID.Desc()).
-		First()
-
-	next := 1
-	if err == nil && last.ErpSalesOrderId != "" {
-		re := regexp.MustCompile(`\d+$`)
-		if m := re.FindString(last.ErpSalesOrderId); m != "" {
-			n, _ := strconv.Atoi(m)
-			next = n + 1
-		}
-	}
-
 	// 4. Generate new ERP Sales Order ID
-	newErpSalesOrderID := fmt.Sprintf("ERP-SO-%05d", next)
+	newErpSalesOrderID := uuid.New().String()
 
 	// 5. Business delay
 	time.Sleep(time.Duration(initializers.AppConfig.TimeSeconds) * time.Second)
@@ -126,7 +105,7 @@ func GenerateAndSetNextErpSalesOrderCodeGen(
 	newErpSalesOrderCode := fmt.Sprintf("ECL 2025/%d", next)
 
 	// 5. Business delay
-	time.Sleep(time.Duration(initializers.AppConfig.TimeSeconds) * time.Second)
+	// time.Sleep(time.Duration(initializers.AppConfig.TimeSeconds) * time.Second)
 
 	// 6. Update ONLY if still empty (race-condition safe)
 	_, err = so.
@@ -364,7 +343,7 @@ func SendSalesErrorResponse(c *fiber.Ctx, message string, orderId string) error 
 			"spicSalesOrderId":    "",
 			"createdAt":           now,
 			"updatedAt":           now,
-			"message":             message,
+			"Message":             message,
 		},
 	})
 }
@@ -503,17 +482,17 @@ func GetCustomerSalesOrderDetailsHandler(c *fiber.Ctx) error {
 		TotalAmount:         14750.59,
 	}
 
-	return c.Status(fiber.StatusCreated).JSON(response)
+	return c.Status(fiber.StatusOK).JSON(response)
 }
 
 func SendOrderIdErrorResponse(c *fiber.Ctx, msg string, orderId string) error {
 	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 		"Message":             msg,
-		"TempERPSalesOrderId": "",
-		"ErpSalesOrderId":     "",
-		"ErpSalesOrderCode":   "",
-		"SpicSalesOrderId":    orderId,
-		"CreatedAt":           "1900-01-01T00:00:00",
+		"tempERPSalesOrderId": "",
+		"erpSalesOrderId":     "",
+		"erpSalesOrderCode":   "",
+		"spicSalesOrderId":    orderId,
+		"createdAt":           "1900-01-01T00:00:00",
 		"updatedAt":           "1900-01-01T00:00:00",
 		"orderValue":          0.0,
 		"taxAmount":           0.0,
