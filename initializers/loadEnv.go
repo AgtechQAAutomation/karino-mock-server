@@ -11,14 +11,15 @@ type Config struct {
 	DBName         string `mapstructure:"MYSQL_DATABASE"`
 	DBPort         string `mapstructure:"MYSQL_PORT"`
 
-	ClientOrigin        string `mapstructure:"CLIENT_ORIGIN"`
-	AllowedCooperatives string `mapstructure:"ALLOWED_COOPERATIVES"`
-	ApiKey              string `mapstructure:"APIKey"`
-	CustomerTimeSeconds int    `mapstructure:"CUSTOMER_TIME_SECONDS"`
-	VendorTimeSeconds   int    `mapstructure:"VENDOR_TIME_SECONDS"`
-	SalesTimeSeconds    int    `mapstructure:"SALES_TIME_SECONDS"`
-	ExpirationTimeHour	int    `mapstructure:"EXPIRATION_TIME_HOURS"`
-	ExpirationTimeSeconds	int    `mapstructure:"EXPIRATION_TIME_SECONDS"`
+	ClientOrigin          string `mapstructure:"CLIENT_ORIGIN"`
+	AllowedCooperatives   string `mapstructure:"ALLOWED_COOPERATIVES"`
+	ApiKey                string `mapstructure:"APIKey"`
+	CustomerTimeSeconds   int    `mapstructure:"CUSTOMER_TIME_SECONDS"`
+	VendorTimeSeconds     int    `mapstructure:"VENDOR_TIME_SECONDS"`
+	SalesTimeSeconds      int    `mapstructure:"SALES_TIME_SECONDS"`
+	ExpirationTimeHour    int    `mapstructure:"EXPIRATION_TIME_HOURS"`
+	ExpirationTimeSeconds int    `mapstructure:"EXPIRATION_TIME_SECONDS"`
+	ServerPort            string `mapstructure:"SERVER_PORT"`
 }
 
 var AppConfig Config
