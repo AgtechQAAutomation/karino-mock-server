@@ -21,7 +21,7 @@ secret.md
 # app.env
 tmp
 app.env 
-
+dump.txt
 # Documentation & generated files
 docs/
 query/
