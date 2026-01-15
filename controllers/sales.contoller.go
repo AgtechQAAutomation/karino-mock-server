@@ -193,6 +193,10 @@ func CreateCustomerSalesOrderHandler(c *fiber.Ctx) error {
 	}
 
 	for _, item := range payload.OrderItems {
+
+		if item.OrderItemID == "" {
+			return SendSalesErrorResponse(c, "You must specify the order item id", payload.OrderID)
+		}
 		if item.ProductGroup == "" {
 			return SendSalesErrorResponse(c, "You must specify the item code or group.", payload.OrderID)
 		}
@@ -205,6 +209,18 @@ func CreateCustomerSalesOrderHandler(c *fiber.Ctx) error {
 
 		if item.Quantity <= 0 {
 			return SendSalesErrorResponse(c, "The quantity of the product must be greater than zero.", payload.OrderID)
+		}
+
+		seenItemIDs := make(map[string]bool)
+		for _, item := range payload.OrderItems {
+			if seenItemIDs[item.OrderItemID] {
+				return SendSalesErrorResponse(
+					c,
+					fmt.Sprintf("Duplicate order_item_id '%s' found in payload.", item.OrderItemID),
+					payload.OrderID,
+				)
+			}
+			seenItemIDs[item.OrderItemID] = true
 		}
 	}
 

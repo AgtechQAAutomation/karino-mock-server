@@ -92,7 +92,7 @@ func GenerateAndSetNextERPItemIdGen(
 	_, err = so.
 		Where(
 			q.SalesOrder.ID.Eq(ErpSalesOrderCode),
-			q.SalesOrder.ErpSalesOrderCode.Eq(""),			
+			q.SalesOrder.ErpSalesOrderCode.Eq(""),
 		).
 		UpdateColumnSimple(
 			q.SalesOrder.ErpSalesOrderCode.Value(newErpSalesOrderCode),
@@ -243,8 +243,8 @@ func CreateCustomerDeliveryDocumentDetailsHandler(c *fiber.Ctx) error {
 			stockKeepingUnit := generate9DigitID()
 			// expirationTime := now.Add(time.Duration(initializers.AppConfig.ExpirationTimeHour) * time.Hour)
 			expiration := time.Now().Add(
-			time.Duration(initializers.AppConfig.ExpirationTimeSeconds) * time.Second,)
-			status := ComputeExpirationStatus(&now,initializers.AppConfig.ExpirationTimeSeconds,)
+				time.Duration(initializers.AppConfig.ExpirationTimeSeconds) * time.Second)
+			status := ComputeExpirationStatus(&now, initializers.AppConfig.ExpirationTimeSeconds)
 			deliveryItem := delivery.CreateDeliveryDocuments{
 				CoopID:            coopId,
 				ErpSalesOrderCode: payload.ErpSalesOrderCode,
@@ -257,9 +257,9 @@ func CreateCustomerDeliveryDocumentDetailsHandler(c *fiber.Ctx) error {
 				StockKeppingUnit: stockKeepingUnit,
 				CreatedAt:        &now,
 				UpdatedAt:        &now,
-				IdCreatedAt:	  &now,
-				ExpirationTime: &expiration,				
-				Status: status,
+				IdCreatedAt:      &now,
+				ExpirationTime:   &expiration,
+				Status:           status,
 			}
 
 			if err := initializers.DB.Create(&deliveryItem).Error; err != nil {
@@ -442,6 +442,7 @@ func GetDeliveryDetailParticularHandler(c *fiber.Ctx) error {
 			"message": "Failed to fetch order items",
 		})
 	}
+
 	var deliveryDocs []delivery.CreateDeliveryDocuments
 	if err := initializers.DB.
 		Where("order_id = ? AND coop_id = ?", orderID, coopId).
@@ -474,7 +475,7 @@ func GetDeliveryDetailParticularHandler(c *fiber.Ctx) error {
 
 					note.Items = append(note.Items, delivery.DeliveryItem{
 						ERPItemID2:       item.ErpItemID2,
-						StockKeepingUnit: item.StockKeepingUnit,
+						StockKeepingUnit: d.StockKeppingUnit,
 						Quantity:         item.Quantity,
 						SalesOrder: delivery.DeliverySalesOrder{
 							TempERPSalesOrderId: order.TempID,
