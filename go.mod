@@ -1,4 +1,4 @@
-module github.com/shyamsundaar/karino-mock-server
+module github.com/AgtechQAAutomation/karino-mock-server
 
 go 1.25.0
 

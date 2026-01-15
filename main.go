@@ -4,15 +4,15 @@ import (
 	"log"
 	"strings"
 
+	"github.com/AgtechQAAutomation/karino-mock-server/controllers"
+	"github.com/AgtechQAAutomation/karino-mock-server/initializers"
+	"github.com/AgtechQAAutomation/karino-mock-server/middleware"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/swagger"
-	"github.com/shyamsundaar/karino-mock-server/controllers"
-	"github.com/shyamsundaar/karino-mock-server/initializers"
-	"github.com/shyamsundaar/karino-mock-server/middleware"
 
-	_ "github.com/shyamsundaar/karino-mock-server/docs"
+	_ "github.com/AgtechQAAutomation/karino-mock-server/docs"
 )
 
 // @title ERP Farmer & Sales Order Integration API

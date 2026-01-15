@@ -1,12 +1,12 @@
 package main
 
 import (
-	"github.com/shyamsundaar/karino-mock-server/models/delivery"
-	"github.com/shyamsundaar/karino-mock-server/models/deliveryproof"
-	models "github.com/shyamsundaar/karino-mock-server/models/farmers"
-	"github.com/shyamsundaar/karino-mock-server/models/sales"
+	"github.com/AgtechQAAutomation/karino-mock-server/models/delivery"
+	"github.com/AgtechQAAutomation/karino-mock-server/models/deliveryproof"
+	models "github.com/AgtechQAAutomation/karino-mock-server/models/farmers"
+	"github.com/AgtechQAAutomation/karino-mock-server/models/sales"
 
-	// "github.com/shyamsundaar/karino-mock-server/models/sales"
+	// "github.com/AgtechQAAutomation/karino-mock-server/models/sales"
 	"gorm.io/gen"
 )
 

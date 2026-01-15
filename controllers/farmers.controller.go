@@ -10,12 +10,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/AgtechQAAutomation/karino-mock-server/initializers"
+	models "github.com/AgtechQAAutomation/karino-mock-server/models/farmers"
 	"github.com/gofiber/fiber/v2"
-	"github.com/shyamsundaar/karino-mock-server/initializers"
-	models "github.com/shyamsundaar/karino-mock-server/models/farmers"
 
 	// "karino-mock-server/query"
-	"github.com/shyamsundaar/karino-mock-server/query"
+	"github.com/AgtechQAAutomation/karino-mock-server/query"
 	// "gorm.io/gorm"
 )
 

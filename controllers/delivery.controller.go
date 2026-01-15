@@ -13,15 +13,15 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
 
-	// "github.com/shyamsundaar/karino-mock-server/models/delivery"
+	// "github.com/AgtechQAAutomation/karino-mock-server/models/delivery"
 	// "gorm.io/gorm"
 	// "github.com/gin-gonic/gin"
 	"context"
 
-	"github.com/shyamsundaar/karino-mock-server/initializers"
-	"github.com/shyamsundaar/karino-mock-server/models/delivery"
-	"github.com/shyamsundaar/karino-mock-server/models/sales"
-	"github.com/shyamsundaar/karino-mock-server/query"
+	"github.com/AgtechQAAutomation/karino-mock-server/initializers"
+	"github.com/AgtechQAAutomation/karino-mock-server/models/delivery"
+	"github.com/AgtechQAAutomation/karino-mock-server/models/sales"
+	"github.com/AgtechQAAutomation/karino-mock-server/query"
 )
 
 func GenerateNextDeliveryDocumentCode(

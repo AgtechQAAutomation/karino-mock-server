@@ -3,8 +3,8 @@ package middleware
 import (
 	"strings"
 
+	"github.com/AgtechQAAutomation/karino-mock-server/initializers"
 	"github.com/gofiber/fiber/v2"
-	"github.com/shyamsundaar/karino-mock-server/initializers"
 )
 
 // ApiKeyAuth validates the X-API-KEY header

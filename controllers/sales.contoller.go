@@ -13,17 +13,17 @@ import (
 
 	// "database/sql"
 
+	"github.com/AgtechQAAutomation/karino-mock-server/initializers"
+	models "github.com/AgtechQAAutomation/karino-mock-server/models/farmers"
+	"github.com/AgtechQAAutomation/karino-mock-server/models/products"
+	"github.com/AgtechQAAutomation/karino-mock-server/models/sales"
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
-	"github.com/shyamsundaar/karino-mock-server/initializers"
-	models "github.com/shyamsundaar/karino-mock-server/models/farmers"
-	"github.com/shyamsundaar/karino-mock-server/models/products"
-	"github.com/shyamsundaar/karino-mock-server/models/sales"
 
 	// "github.com/google/uuid"
-	// "github.com/shyamsundaar/karino-mock-server/models/farmers"
+	// "github.com/AgtechQAAutomation/karino-mock-server/models/farmers"
 	// "karino-mock-server/query"
-	"github.com/shyamsundaar/karino-mock-server/query"
+	"github.com/AgtechQAAutomation/karino-mock-server/query"
 	"gorm.io/gorm"
 )
 

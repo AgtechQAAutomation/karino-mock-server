@@ -3,7 +3,7 @@ package initializers
 import (
 	"log"
 
-	"github.com/shyamsundaar/karino-mock-server/models/products"
+	"github.com/AgtechQAAutomation/karino-mock-server/models/products"
 	"gorm.io/gorm"
 )
 

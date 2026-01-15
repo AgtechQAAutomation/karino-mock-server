@@ -5,17 +5,18 @@ import (
 	"math"
 	"time"
 
+	"github.com/AgtechQAAutomation/karino-mock-server/initializers"
 	"github.com/gofiber/fiber/v2"
-	"github.com/shyamsundaar/karino-mock-server/initializers"
 
-	// "github.com/shyamsundaar/karino-mock-server/models/delivery"
-	"github.com/shyamsundaar/karino-mock-server/models/deliveryproof"
+	// "github.com/AgtechQAAutomation/karino-mock-server/models/delivery"
+	"github.com/AgtechQAAutomation/karino-mock-server/models/delivery"
+	"github.com/AgtechQAAutomation/karino-mock-server/models/deliveryproof"
 
 	// "context"
 	"strconv"
 
 	"github.com/google/uuid"
-	// "github.com/shyamsundaar/karino-mock-server/query"
+	// "github.com/AgtechQAAutomation/karino-mock-server/query"
 )
 
 func GenerateAndSetNextERPproofIDGen() string {
@@ -36,17 +37,32 @@ func GenerateAndSetNextERPproofIDGen() string {
 func CreateDeliveryDocumentsProofHandler(c *fiber.Ctx) error {
 	var payload deliveryproof.CreateDeliveryDocumentProofSchema
 	coopId := c.Params("coopId")
-
+	deliveryNoteId := c.Params("deliveryNoteId")
 	if err := c.BodyParser(&payload); err != nil {
 		return c.Status(400).JSON(fiber.Map{
 			"success": false,
 			"error":   err.Error(),
 		})
 	}
-	
 
 	if !isCoopAllowed(coopId) {
 		return SendDocumentdeliveryProofErrorResponse(c, "The indicated cooperative does not exist.")
+	}
+
+	if payload.Waybill.DeliveryNoteID == "" {
+		return SendDocumentdeliveryProofErrorResponse(c, "Please indicate the ID of the delivery guide.")
+	}
+
+	if deliveryNoteId != payload.Waybill.DeliveryNoteID {
+		return SendDocumentdeliveryProofErrorResponse(c, "The guide ID, URL and information sent are not the same.")
+	}
+
+	var existingdeliveryNoteId delivery.CreateDeliveryDocuments
+
+	deliveryNoteIdMatching := initializers.DB.Where("delivery_document_id = ? AND coop_id = ? AND status = ?", deliveryNoteId, coopId, "NOT EXPIRED").First(&existingdeliveryNoteId).Error
+
+	if deliveryNoteIdMatching != nil {
+		return SendDocumentdeliveryProofErrorResponse(c, "The delivery guide has been canceled or is no longer pending.")
 	}
 
 	// ------------------------------------------
@@ -89,6 +105,11 @@ func CreateDeliveryDocumentsProofHandler(c *fiber.Ctx) error {
 	var items []deliveryproof.WaybillItem
 
 	for _, item := range payload.WaybillItems {
+		StockKeppingUnit := initializers.DB.Where("delivery_document_id = ? AND stock_kepping_unit = ?", deliveryNoteId, item.StockKeepingUnit).First(&existingdeliveryNoteId).Error
+
+		if StockKeppingUnit != nil {
+			return SendDocumentdeliveryProofErrorResponse(c, "The indicated item does not exist"+"("+item.StockKeepingUnit+").")
+		}
 		items = append(items, deliveryproof.WaybillItem{
 			OrderID:          payload.Waybill.OrderID, // FK match
 			Name:             item.Name,
@@ -96,8 +117,8 @@ func CreateDeliveryDocumentsProofHandler(c *fiber.Ctx) error {
 			Quantity:         item.Quantity,
 			QuantityUnitKey:  item.QuantityUnitKey,
 			UnitPrice:        item.UnitPrice,
-			ErpItemID:			  GenerateAndSetNextERPproofIDGen(),
-			ErpItemID2:			  GenerateAndSetNextERPproofIDGen(),
+			ErpItemID:        GenerateAndSetNextERPproofIDGen(),
+			ErpItemID2:       GenerateAndSetNextERPproofIDGen(),
 			Price:            item.Price,
 			PriceUnitKey:     item.PriceUnitKey,
 			Status:           item.Status,
@@ -123,8 +144,8 @@ func CreateDeliveryDocumentsProofHandler(c *fiber.Ctx) error {
 		Success: true,
 		Data: deliveryproof.CreateDocumentdeliveryProofResponse{
 			TempERPProofId: newWaybill.TempID, // return primary key
-			OrderId: newWaybill.OrderID,
-			Message: "Delivery proof created successfully",
+			OrderId:        newWaybill.OrderID,
+			Message:        "Delivery proof created successfully",
 		},
 	})
 }
