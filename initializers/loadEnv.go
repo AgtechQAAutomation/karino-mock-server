@@ -17,6 +17,8 @@ type Config struct {
 	CustomerTimeSeconds int    `mapstructure:"CUSTOMER_TIME_SECONDS"`
 	VendorTimeSeconds   int    `mapstructure:"VENDOR_TIME_SECONDS"`
 	SalesTimeSeconds    int    `mapstructure:"SALES_TIME_SECONDS"`
+	ExpirationTimeHour	int    `mapstructure:"EXPIRATION_TIME_HOURS"`
+	ExpirationTimeSeconds	int    `mapstructure:"EXPIRATION_TIME_SECONDS"`
 }
 
 var AppConfig Config

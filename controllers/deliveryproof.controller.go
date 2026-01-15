@@ -20,7 +20,6 @@ import (
 
 func GenerateAndSetNextERPproofIDGen() string {
 	return uuid.New().String()
-
 }
 
 // CreateDeliveryDocumentsProofHandler handles POST /spic_to_erp/customers/:coopId/deliverydocuments/:deliveryNoteId/proof
@@ -43,6 +42,7 @@ func CreateDeliveryDocumentsProofHandler(c *fiber.Ctx) error {
 			"error":   err.Error(),
 		})
 	}
+	
 
 	// ------------------------------------------
 	// 1️⃣ MAP: WaybillProof → Waybill (DB Model)
@@ -91,6 +91,8 @@ func CreateDeliveryDocumentsProofHandler(c *fiber.Ctx) error {
 			Quantity:         item.Quantity,
 			QuantityUnitKey:  item.QuantityUnitKey,
 			UnitPrice:        item.UnitPrice,
+			ErpItemID:			  GenerateAndSetNextERPproofIDGen(),
+			ErpItemID2:			  GenerateAndSetNextERPproofIDGen(),
 			Price:            item.Price,
 			PriceUnitKey:     item.PriceUnitKey,
 			Status:           item.Status,
@@ -115,7 +117,7 @@ func CreateDeliveryDocumentsProofHandler(c *fiber.Ctx) error {
 	return c.Status(201).JSON(deliveryproof.CreateDocumentdeliveryProofSuccessResponse{
 		Success: true,
 		Data: deliveryproof.CreateDocumentdeliveryProofResponse{
-			//TempERPProofId: fmt.Sprintf("%d", newWaybill.ID), // return primary key
+			TempERPProofId: newWaybill.TempID, // return primary key
 			OrderId: newWaybill.OrderID,
 			Message: "Delivery proof created successfully",
 		},

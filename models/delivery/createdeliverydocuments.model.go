@@ -17,6 +17,9 @@ type CreateDeliveryDocuments struct {
 	StockKeppingUnit     string     `json:"stock_keeping_unit" gorm:"size:64;index;not null"`
 	CreatedAt            *time.Time `json:"created_at"`
 	UpdatedAt            *time.Time `json:"updated_at"`
+	IdCreatedAt			 *time.Time `json:"id_created_at"`
+	ExpirationTime       *time.Time `json:"expires_at"`
+	Status				 string 	`json:"status"`
 }
 
 func (CreateDeliveryDocuments) TableName() string {

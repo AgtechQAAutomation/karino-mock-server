@@ -2,7 +2,7 @@ package deliveryproof
 
 import (
 	"time"
-
+	"strconv"
 	"gorm.io/gorm"
 )
 
@@ -66,6 +66,7 @@ type Waybill struct {
 	ID         uint   `gorm:"primaryKey;autoIncrement"`
 	ContractID string `gorm:"size:128"`
 	CoopID     string `gorm:"column:coop_id;not null" json:"coopId"`
+	TempID string `gorm:"column:temp_id;not null" json:"temp_id"`
 	// OrderID must be a string and unique to be used as a reference
 	OrderID              string `gorm:"column:order_id;size:64;uniqueIndex" json:"order_id"`
 	RegionID             int    `json:"region_id"`
@@ -102,7 +103,8 @@ type WaybillItem struct {
 	NumberOfUnits   int     `json:"number_of_units"`
 	Quantity        float64 `json:"quantity"`
 	QuantityUnitKey string  `json:"quantity_unit_key"`
-
+	ErpItemID       string `gorm:"column:erp_item_id;size:64" json:"erp_item_id"`
+	ErpItemID2      string `gorm:"column:erp_item_id_2;size:64" json:"erp_item_id_2"`
 	UnitPrice string `json:"unit_price"`
 	Price     string `json:"price"`
 
@@ -113,6 +115,36 @@ type WaybillItem struct {
 
 func (WaybillItem) TableName() string {
 	return "way_bill_items"
+}
+
+func (d *Waybill) BeforeCreate(tx *gorm.DB) (err error) {
+	now := time.Now()
+
+	// Fetch last TempID
+	var lastTempID string
+
+	err = tx.
+		Model(&Waybill{}).
+		Select("temp_id").
+		Where("temp_id IS NOT NULL AND temp_id != ''").
+		Order("id DESC").
+		Limit(1).
+		Scan(&lastTempID).Error
+
+	// Default start value
+	next := 1000
+
+	if err == nil && lastTempID != "" {
+		if n, convErr := strconv.Atoi(lastTempID); convErr == nil {
+			next = n + 1
+		}
+	}
+
+	d.TempID = strconv.Itoa(next)
+	d.CreatedAt = now
+	d.UpdatedAt = now
+
+	return nil
 }
 
 type CreateDeliveryDocumentProofSchema struct {

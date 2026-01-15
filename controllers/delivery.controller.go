@@ -92,7 +92,7 @@ func GenerateAndSetNextERPItemIdGen(
 	_, err = so.
 		Where(
 			q.SalesOrder.ID.Eq(ErpSalesOrderCode),
-			q.SalesOrder.ErpSalesOrderCode.Eq(""),
+			q.SalesOrder.ErpSalesOrderCode.Eq(""),			
 		).
 		UpdateColumnSimple(
 			q.SalesOrder.ErpSalesOrderCode.Value(newErpSalesOrderCode),
@@ -115,6 +115,31 @@ func generate9DigitID() string {
 	rand.Read(b)
 	// Generate a number between 100,000,000 and 999,999,999
 	return fmt.Sprintf("%09d", (uint32(b[0])|uint32(b[1])<<8|uint32(b[2])<<16|uint32(b[3])<<24)%900000000+100000000)
+}
+
+const (
+	StatusExpired    = "EXPIRED"
+	StatusNotExpired = "NOT EXPIRED"
+)
+
+func ComputeExpirationStatus(
+	createdAt *time.Time,
+	expirationSeconds int,
+) string {
+
+	if createdAt == nil || expirationSeconds <= 0 {
+		return StatusNotExpired
+	}
+
+	expirationTime := createdAt.Add(
+		time.Duration(expirationSeconds) * time.Second,
+	)
+
+	if time.Now().After(expirationTime) {
+		return StatusExpired
+	}
+
+	return StatusNotExpired
 }
 
 // CreateCustomerDeliveryDocumentDetailsHandler handles POST /spic_to_erp/customers/:coopId/salesorders/deliverydocuments
@@ -216,7 +241,10 @@ func CreateCustomerDeliveryDocumentDetailsHandler(c *fiber.Ctx) error {
 
 		for _, item := range document {
 			stockKeepingUnit := generate9DigitID()
-
+			// expirationTime := now.Add(time.Duration(initializers.AppConfig.ExpirationTimeHour) * time.Hour)
+			expiration := time.Now().Add(
+			time.Duration(initializers.AppConfig.ExpirationTimeSeconds) * time.Second,)
+			status := ComputeExpirationStatus(&now,initializers.AppConfig.ExpirationTimeSeconds,)
 			deliveryItem := delivery.CreateDeliveryDocuments{
 				CoopID:            coopId,
 				ErpSalesOrderCode: payload.ErpSalesOrderCode,
@@ -229,6 +257,9 @@ func CreateCustomerDeliveryDocumentDetailsHandler(c *fiber.Ctx) error {
 				StockKeppingUnit: stockKeepingUnit,
 				CreatedAt:        &now,
 				UpdatedAt:        &now,
+				IdCreatedAt:	  &now,
+				ExpirationTime: &expiration,				
+				Status: status,
 			}
 
 			if err := initializers.DB.Create(&deliveryItem).Error; err != nil {

@@ -35,6 +35,8 @@ func ConnectDB(config *Config) {
 		&delivery.CreateDeliveryDocuments{},
 		&deliveryproof.Waybill{}, &deliveryproof.WaybillItem{})
 	SeedInitialData(DB)
+	StartExpirationWorker(DB)
+
 	if err != nil {
 		log.Fatalf("Migration failed: %v", err)
 	}
