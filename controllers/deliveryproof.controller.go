@@ -35,6 +35,7 @@ func GenerateAndSetNextERPproofIDGen() string {
 // @Router       /spic_to_erp/customers/{coopId}/deliverydocuments/{deliveryNoteId}/proof [post]
 func CreateDeliveryDocumentsProofHandler(c *fiber.Ctx) error {
 	var payload deliveryproof.CreateDeliveryDocumentProofSchema
+	coopId := c.Params("coopId")
 
 	if err := c.BodyParser(&payload); err != nil {
 		return c.Status(400).JSON(fiber.Map{
@@ -44,12 +45,16 @@ func CreateDeliveryDocumentsProofHandler(c *fiber.Ctx) error {
 	}
 	
 
+	if !isCoopAllowed(coopId) {
+		return SendDocumentdeliveryProofErrorResponse(c, "The indicated cooperative does not exist.")
+	}
+
 	// ------------------------------------------
 	// 1️⃣ MAP: WaybillProof → Waybill (DB Model)
 	// ------------------------------------------
 	newWaybill := deliveryproof.Waybill{
 		ContractID:           payload.Waybill.ContractID,
-		CoopID:               c.Params("coopId"), // <-- YOU WILL PASS coopId from route
+		CoopID:               coopId, // <-- YOU WILL PASS coopId from route
 		OrderID:              payload.Waybill.OrderID,
 		RegionID:             payload.Waybill.RegionID,
 		RegionPartID:         payload.Waybill.RegionPartID,
@@ -124,12 +129,12 @@ func CreateDeliveryDocumentsProofHandler(c *fiber.Ctx) error {
 	})
 }
 
-func SendDocumentdeliveryProofErrorResponse(c *fiber.Ctx, message string, orderId string) error {
-	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+func SendDocumentdeliveryProofErrorResponse(c *fiber.Ctx, message string) error {
+	return c.Status(400).JSON(fiber.Map{
 		"success": false,
 		"data": fiber.Map{
 			"TempERPProofId": "",
-			"OrderId":        orderId,
+			"OrderId":        "",
 			"Message":        message,
 		},
 	})
