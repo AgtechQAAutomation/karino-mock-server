@@ -63,20 +63,14 @@ go install gorm.io/cli/gorm@latest
 go mod tidy
 ```
 
-11. Run the generator to create/query scaffolding (run this first to generate `query`):
+11. Finally, run the server:
 
 ```bash
-go run cmd/generate/main.go
-```
-
-12. Finally, run the server:
-
-```bash
-go run main.go
+./dev.sh
 ```
 
 13. Open Swagger UI in your browser:
 
 ```text
-Open http://localhost:8000/swagger/index.html
+Open http://localhost:8001/swagger/index.html
 ```
