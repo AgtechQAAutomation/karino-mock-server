@@ -20,7 +20,7 @@ logs.txt
 secret.md
 # app.env
 tmp
-app.env 
+app.example.env 
 dump.txt
 # Documentation & generated files
 docs/
