@@ -1,0 +1,27 @@
+POST http://localhost:8001/spic_to_erp/customers/COOP019/farmers HTTP/1.1
+Apikey: 123452026
+Content-Type: application/json
+Host: localhost:8001
+Content-Length: 480
+
+{
+	"ZipCode": "a",
+	"clubId": "a",
+	"clubLeaderFarmerId": "a",
+	"clubName": "a",
+	"createdDate": "2025-12-30T05:03:17.863Z",
+	"custom_geography_structure1_id": "0",
+	"custom_geography_structure2_id": "0",
+	"farmerId": "99",
+	"farmer_kyc_id": "99",
+	"farmer_kyc_type": "",
+	"farmer_kyc_type_id": 1,
+	"firstName": "a",
+	"lastName": "b",
+	"mobile_number": "a",
+	"regionId": 1,
+	"regionPartID": 1,
+	"settlementID": 1,
+	"settlementPartID": 1,
+	"updatedAt": "2025-12-30T05:03:17.863Z"
+}

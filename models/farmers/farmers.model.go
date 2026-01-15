@@ -4,7 +4,8 @@ import (
 	"time"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/google/uuid"
+	// "github.com/google/uuid"
+	"strconv"
 	"gorm.io/gorm"
 )
 
@@ -23,8 +24,8 @@ type FarmerDetails struct {
 	RegionPartID                int        `json:"regionPartId"`
 	SettlementID                int        `json:"settlementId"`
 	SettlementPartID            int        `json:"settlementPartId"`
-	CustomGeographyStructure1ID string     `json:"custom_geography_structure1_id"`
-	CustomGeographyStructure2ID string     `json:"custom_geography_structure2_id"`
+	CustomGeographyStructure1ID int     `json:"custom_geography_structure1_id"`
+	CustomGeographyStructure2ID int     `json:"custom_geography_structure2_id"`
 	ZipCode                     string     `json:"zipCode"`
 	FarmerKycTypeID             int        `json:"farmer_kyc_type_id"`
 	FarmerKycType               string     `json:"farmer_kyc_type"`
@@ -32,8 +33,8 @@ type FarmerDetails struct {
 	ClubID                      string     `json:"clubId"`
 	ClubName                    string     `json:"clubName"`
 	ClubLeaderFarmerID          string     `json:"clubLeaderFarmerId" `
-	RaithuCreatedDate           time.Time  `json:"createdDate" gorm:"default:null"`
-	RaithuUpdatedAt             time.Time  `json:"updatedAt" gorm:"default:null"`
+	RaithuCreatedDate           string     `json:"createdDate" gorm:"default:null"`
+	RaithuUpdatedAt             string     `json:"updatedAt" gorm:"default:null"`
 	CreatedAt                   time.Time  `gorm:"default:null" `
 	UpdatedAt                   time.Time  `gorm:"default:null"`
 	CustIDUpdateAt              *time.Time `gorm:"default:null"`
@@ -42,15 +43,35 @@ type FarmerDetails struct {
 
 // BeforeCreate Hook to handle any logic before saving to DB
 func (d *FarmerDetails) BeforeCreate(tx *gorm.DB) (err error) {
-	var now = time.Now()
-	if d.TempID == "" {
-		d.TempID = uuid.New().String()
+	now := time.Now()
+
+	// Fetch last TempID
+	var lastTempID string
+
+	err = tx.
+		Model(&FarmerDetails{}).
+		Select("temp_id").
+		Where("temp_id IS NOT NULL AND temp_id != ''").
+		Order("id DESC").
+		Limit(1).
+		Scan(&lastTempID).Error
+
+	// Default start value
+	next := 1000
+
+	if err == nil && lastTempID != "" {
+		if n, convErr := strconv.Atoi(lastTempID); convErr == nil {
+			next = n + 1
+		}
 	}
 
+	d.TempID = strconv.Itoa(next)
 	d.CreatedAt = now
 	d.UpdatedAt = now
+
 	return nil
 }
+
 
 // Initialize the validator once for the package
 var validate = validator.New()
@@ -88,23 +109,23 @@ type ErrorResponse struct {
 // CreateDetailSchema represents request body
 // swagger:model CreateDetailSchema
 type CreateDetailSchema struct {
-	FarmerID           string    `json:"farmerId" example:"string"`
-	FirstName          string    `json:"firstName" example:"string"`
-	LastName           string    `json:"lastName" example:"string"`
-	MobileNumber       string    `json:"mobile_number" example:"string"`
-	RegionID           int       `json:"regionId" example:"0"`
-	RegionPartID       int       `json:"regionPartID" example:"0"`
-	SettlementID       int       `json:"settlementID" example:"0"`
-	SettlementPartID   int       `json:"settlementPartID" example:"0"`
-	CustomGeo1ID       string    `json:"custom_geography_structure1_id" example:"0"`
-	CustomGeo2ID       string    `json:"custom_geography_structure2_id" example:"0"`
-	ZipCode            string    `json:"ZipCode" example:"string"`
-	FarmerKycTypeID    int       `json:"farmer_kyc_type_id" example:"0"`
-	FarmerKycType      string    `json:"farmer_kyc_type" example:"string"`
-	FarmerKycID        string    `json:"farmer_kyc_id" example:"string"`
-	ClubID             string    `json:"clubId" example:"string"`
-	ClubName           string    `json:"clubName" example:"string"`
-	ClubLeaderFarmerID string    `json:"clubLeaderFarmerId" example:"string"`
-	RaithuCreatedDate  time.Time `json:"createdDate" example:"2025-12-30T05:03:17.863Z"`
-	RaithuUpdatedAt    time.Time `json:"updatedAt" example:"2025-12-30T05:03:17.863Z"`
+	FarmerID           string `json:"farmerId" example:"string"`
+	FirstName          string `json:"firstName" example:"string"`
+	LastName           string `json:"lastName" example:"string"`
+	MobileNumber       string `json:"mobile_number" example:"string"`
+	RegionID           int    `json:"regionId" example:"0"`
+	RegionPartID       int    `json:"regionPartID" example:"0"`
+	SettlementID       int    `json:"settlementID" example:"0"`
+	SettlementPartID   int    `json:"settlementPartID" example:"0"`
+	CustomGeo1ID       int `json:"custom_geography_structure1_id" example:"0"`
+	CustomGeo2ID       int `json:"custom_geography_structure2_id" example:"0"`
+	ZipCode            string `json:"ZipCode" example:"string"`
+	FarmerKycTypeID    int    `json:"farmer_kyc_type_id" example:"0"`
+	FarmerKycType      string `json:"farmer_kyc_type" example:"string"`
+	FarmerKycID        string `json:"farmer_kyc_id" example:"string"`
+	ClubID             string `json:"clubId" example:"string"`
+	ClubName           string `json:"clubName" example:"string"`
+	ClubLeaderFarmerID string `json:"clubLeaderFarmerId" example:"string"`
+	RaithuCreatedDate  string `json:"createdDate" example:"2025-12-30T05:03:17.863Z"`
+	RaithuUpdatedAt    string `json:"updatedAt" example:"2025-12-30T05:03:17.863Z"`
 }

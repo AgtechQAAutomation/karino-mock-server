@@ -50,6 +50,7 @@ func GenerateAndSetNextCustomerIDGen(
 		return "", err
 	}
 
+	// If already assigned, return existing ID
 	if row.CustomerID != "" {
 		return row.CustomerID, nil
 	}
@@ -60,21 +61,25 @@ func GenerateAndSetNextCustomerIDGen(
 		Order(q.FarmerDetails.ID.Desc()).
 		First()
 
+	// Start from C26000 → numeric = 0
 	next := 1
+
 	if err == nil && last.CustomerID != "" {
-		re := regexp.MustCompile(`\d+$`)
+		// Extract only the last 5 digits
+		re := regexp.MustCompile(`(\d{5})$`)
 		if m := re.FindString(last.CustomerID); m != "" {
 			n, _ := strconv.Atoi(m)
 			next = n + 1
 		}
 	}
 
-	newCustomerID := fmt.Sprintf("CUST%05d", next)
+	// Generate ID → C26 + 5-digit counter
+	newCustomerID := fmt.Sprintf("C26%05d", next)
 
-	// 3. Business delay
-	time.Sleep(time.Duration(initializers.AppConfig.TimeSeconds) * time.Second)
+	// Optional business delay
+	time.Sleep(time.Duration(initializers.AppConfig.CustomerTimeSeconds) * time.Second)
 
-	// 4. Update only if still empty
+	// Update only if still empty (safe update)
 	_, err = fd.
 		Where(
 			q.FarmerDetails.ID.Eq(detailID),
@@ -101,11 +106,14 @@ func GenerateAndSetNextVendorIDGen(
 	fd := q.FarmerDetails.WithContext(ctx)
 
 	// 1. Get current row
-	row, err := fd.Where(q.FarmerDetails.ID.Eq(detailID)).First()
+	row, err := fd.
+		Where(q.FarmerDetails.ID.Eq(detailID)).
+		First()
 	if err != nil {
 		return "", err
 	}
 
+	// If already assigned, return existing VendorID
 	if row.VendorID != "" {
 		return row.VendorID, nil
 	}
@@ -116,20 +124,25 @@ func GenerateAndSetNextVendorIDGen(
 		Order(q.FarmerDetails.ID.Desc()).
 		First()
 
+	// Start counter
 	next := 1
+
 	if err == nil && last.VendorID != "" {
-		re := regexp.MustCompile(`\d+$`)
+		// Extract last 5 digits only
+		re := regexp.MustCompile(`(\d{5})$`)
 		if m := re.FindString(last.VendorID); m != "" {
 			n, _ := strconv.Atoi(m)
 			next = n + 1
 		}
 	}
 
-	newVendorID := fmt.Sprintf("VEND%05d", next)
+	// Generate Vendor ID → V26 + 5-digit number
+	newVendorID := fmt.Sprintf("F26%05d", next)
 
-	// 3. Business delay
-	time.Sleep(time.Duration(initializers.AppConfig.TimeSeconds) * time.Second)
-	// 4. Update only if still empty
+	// Optional business delay
+	time.Sleep(time.Duration(initializers.AppConfig.VendorTimeSeconds) * time.Second)
+
+	// Update only if still empty (race-safe)
 	_, err = fd.
 		Where(
 			q.FarmerDetails.ID.Eq(detailID),
@@ -155,7 +168,7 @@ func GenerateAndSetNextVendorIDGen(
 // @Produce      json
 // @Param        coopId  path      string                            true  "Cooperative ID"
 // @Param        detail  body      models.CreateDetailSchema          true  "Create Detail Payload"
-// @Success      201     {object}  models.CreateSuccessFarmerResponse
+// @Success      201     {object}  models.CreateSuccessFarmerCustomerResponse
 // @Router       /spic_to_erp/customers/{coopId}/farmers [post]
 func CreateCustomerDetailHandler(c *fiber.Ctx) error {
 	coopId := c.Params("coopId")
@@ -198,6 +211,7 @@ func CreateCustomerDetailHandler(c *fiber.Ctx) error {
 			}(existingFarmer.ID)
 		}
 
+<<<<<<< HEAD
 		return c.Status(fiber.StatusCreated).JSON(
 			models.CreateSuccessFarmerResponse{
 				Success: true,
@@ -209,6 +223,19 @@ func CreateCustomerDetailHandler(c *fiber.Ctx) error {
 					CreatedAt:         existingFarmer.CreatedAt.Format(time.RFC3339),
 					UpdatedAt:         existingFarmer.UpdatedAt.Format(time.RFC3339),
 					Message:           "Farmer detail created successfully",
+=======
+		return c.Status(fiber.StatusOK).JSON(
+			models.CreateSuccessFarmerCustomerResponse{
+				Success: true,
+				Data: models.CreateFarmerCustomerResponse{
+					TempERPCustomerID: existingFarmer.TempID,
+					ErpCustomerId:     existingFarmer.CustomerID,
+					// ErpVendorId:       existingFarmer.VendorID,
+					FarmerId:  existingFarmer.FarmerID,
+					CreatedAt: existingFarmer.CreatedAt.Format(time.RFC3339),
+					UpdatedAt: existingFarmer.UpdatedAt.Format(time.RFC3339),
+					Message:   "Farmer detail created successfully",
+>>>>>>> main
 				},
 			},
 		)
@@ -285,6 +312,7 @@ func CreateCustomerDetailHandler(c *fiber.Ctx) error {
 	// 7. CREATE NEW FARMER RECORD
 	// ----------------------------------------------------
 	newDetail := models.FarmerDetails{
+<<<<<<< HEAD
 		CoopID:                      coopId,
 		FarmerID:                    payload.FarmerID,
 		FirstName:                   payload.FirstName,
@@ -307,6 +335,38 @@ func CreateCustomerDetailHandler(c *fiber.Ctx) error {
 		RaithuUpdatedAt:             payload.RaithuUpdatedAt,
 	}
 
+=======
+		CoopID: coopId,
+	}
+
+	// copy from payload
+	newDetail.FarmerID = payload.FarmerID
+	newDetail.FirstName = payload.FirstName
+	newDetail.LastName = payload.LastName
+	newDetail.MobileNumber = payload.MobileNumber
+	newDetail.RegionID = payload.RegionID
+	newDetail.RegionPartID = payload.RegionPartID
+	newDetail.SettlementID = payload.SettlementID
+	newDetail.SettlementPartID = payload.SettlementPartID
+	newDetail.ZipCode = payload.ZipCode
+	newDetail.FarmerKycTypeID = payload.FarmerKycTypeID
+	newDetail.FarmerKycType = payload.FarmerKycType
+	newDetail.FarmerKycID = payload.FarmerKycID
+	newDetail.ClubID = payload.ClubID
+	newDetail.ClubName = payload.ClubName
+	newDetail.ClubLeaderFarmerID = payload.ClubLeaderFarmerID
+	newDetail.RaithuCreatedDate = payload.RaithuCreatedDate
+	newDetail.RaithuUpdatedAt = payload.RaithuUpdatedAt
+
+	// // Perform the mapping
+	// if err := mapper.Map(payload, &newDetail); err != nil {
+	// 	log.Fatalf("failed to map payload to FarmerDetails: %v", err)
+	// }
+
+	newDetail.CustomGeographyStructure1ID = payload.CustomGeo1ID
+	newDetail.CustomGeographyStructure2ID = payload.CustomGeo2ID
+
+>>>>>>> main
 	if err := initializers.DB.Create(&newDetail).Error; err != nil {
 		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{
 			"status":  "error",
@@ -329,6 +389,7 @@ func CreateCustomerDetailHandler(c *fiber.Ctx) error {
 	// ----------------------------------------------------
 	// 9. RESPONSE
 	// ----------------------------------------------------
+<<<<<<< HEAD
 	return c.Status(fiber.StatusCreated).JSON(
 		models.CreateSuccessFarmerResponse{
 			Success: true,
@@ -340,13 +401,26 @@ func CreateCustomerDetailHandler(c *fiber.Ctx) error {
 				CreatedAt:         newDetail.CreatedAt.Format(time.RFC3339),
 				UpdatedAt:         newDetail.UpdatedAt.Format(time.RFC3339),
 				Message:           "Farmer detail created successfully",
+=======
+	return c.Status(fiber.StatusOK).JSON(
+		models.CreateSuccessFarmerCustomerResponse{
+			Success: true,
+			Data: models.CreateFarmerCustomerResponse{
+				TempERPCustomerID: newDetail.TempID,
+				ErpCustomerId:     newDetail.CustomerID,
+				// ErpVendorId:       newDetail.VendorID,
+				FarmerId:  newDetail.FarmerID,
+				CreatedAt: newDetail.CreatedAt.Format(time.RFC3339),
+				UpdatedAt: newDetail.UpdatedAt.Format(time.RFC3339),
+				Message:   "Farmer detail created successfully",
+>>>>>>> main
 			},
 		},
 	)
 }
 
 func SendCustomerErrorResponse(c *fiber.Ctx, msg string, farmerId string) error {
-	now := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
+	now := time.Now().UTC()
 	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 		"success": false,
 		"data": fiber.Map{
@@ -370,8 +444,8 @@ func SendCustomerErrorResponse(c *fiber.Ctx, msg string, farmerId string) error 
 // @Param        updatedFrom   query     string  false  " "
 // @Param        updatedTo     query     string  false  " "
 // @Param        page          query     int     false  "Page number"    default(1)
-// @Param        limit         query     int     false  "Items per page" default(10)
-// @Success      200    {object}  models.ListFarmersResponse
+// @Param        perPage         query     int     false  "Items per page" default(10)
+// @Success      200    {object}  models.ListFarmersCustomersResponse
 // @Router       /spic_to_erp/customers/{coopId}/farmers [get]
 func FindCustomerDetailsHandler(c *fiber.Ctx) error {
 	coopId := c.Params("coopId")
@@ -379,11 +453,19 @@ func FindCustomerDetailsHandler(c *fiber.Ctx) error {
 	updatedTo := c.Query("updatedTo")
 
 	page, _ := strconv.Atoi(c.Query("page", "1"))
+<<<<<<< HEAD
 	limit, _ := strconv.Atoi(c.Query("limit", "10"))
 	if limit <= 0 {
 		limit = 10
 	}
 	offset := (page - 1) * limit
+=======
+	perPage, _ := strconv.Atoi(c.Query("perPage", "10"))
+	if perPage <= 0 {
+		perPage = 10
+	}
+	offset := (page - 1) * perPage
+>>>>>>> main
 
 	var farmers []models.FarmerDetails
 	var totalRecords int64
@@ -392,28 +474,49 @@ func FindCustomerDetailsHandler(c *fiber.Ctx) error {
 		Model(&models.FarmerDetails{}).
 		Where("coop_id = ? AND customer_id IS NOT NULL AND customer_id != '' ", coopId)
 
+<<<<<<< HEAD
+=======
+	if !isCoopAllowed(coopId) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"Message": "The indicated cooperative does not exist",
+		})
+	}
+
+>>>>>>> main
 	if updatedFrom != "" && updatedTo != "" {
 
 		fromTime, err := time.Parse(time.RFC3339, updatedFrom)
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+<<<<<<< HEAD
 				"message": "Invalid updatedFrom format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)",
+=======
+				"Message": "Invalid updatedFrom format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)",
+>>>>>>> main
 			})
 		}
 
 		toTime, err := time.Parse(time.RFC3339, updatedTo)
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+<<<<<<< HEAD
 				"message": "Invalid updatedTo format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)",
 			})
 		}
 
 		query = query.Where("updated_at>= ? AND updated_at<= ? ", fromTime, toTime)
+=======
+				"Message": "Invalid updatedTo format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)",
+			})
+		}
+
+		query = query.Where("cust_id_update_at>= ? AND cust_id_update_at<= ? ", fromTime, toTime)
+>>>>>>> main
 	}
 	query.Count(&totalRecords)
 
 	if err := query.
-		Limit(limit).
+		Limit(perPage).
 		Offset(offset).
 		Find(&farmers).Error; err != nil {
 
@@ -423,15 +526,19 @@ func FindCustomerDetailsHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	totalPages := int(math.Ceil(float64(totalRecords) / float64(limit)))
+	totalPages := int(math.Ceil(float64(totalRecords) / float64(perPage)))
 
 	// ✅ Map DB → RESPONSE MODEL
+<<<<<<< HEAD
 	data := make([]models.FarmerResponse, 0)
+=======
+	data := make([]models.FarmerCustomerResponse, 0)
+>>>>>>> main
 	for _, f := range farmers {
-		data = append(data, models.FarmerResponse{
+		data = append(data, models.FarmerCustomerResponse{
 			ErpCustomerId:     f.CustomerID,
 			TempERPCustomerID: f.TempID,
-			ErpVendorId:       f.VendorID,
+			// ErpVendorId:       f.VendorID,
 			// TempErpVendorId:   f.TempVendorID, // if exists
 			FarmerId:  f.FarmerID,
 			CreatedAt: f.CreatedAt.Format("2006-01-02T15:04:05Z"),
@@ -439,11 +546,11 @@ func FindCustomerDetailsHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.Status(fiber.StatusOK).JSON(models.ListFarmersResponse{
+	return c.Status(fiber.StatusOK).JSON(models.ListFarmersCustomersResponse{
 		Data: data,
 		Pagination: models.PaginationInfo{
 			Page:        page,
-			Limit:       limit,
+			Limit:       perPage,
 			TotalItems:  int(totalRecords),
 			TotalPages:  totalPages,
 			HasPrevious: page > 1,
@@ -460,7 +567,7 @@ func FindCustomerDetailsHandler(c *fiber.Ctx) error {
 // @Produce      json
 // @Param        coopId  path      string                            true  "Cooperative ID"
 // @Param        detail  body      models.CreateDetailSchema          true  "Create Detail Payload"
-// @Success      201     {object}  models.CreateSuccessFarmerResponse
+// @Success      201     {object}  models.CreateSuccessFarmerVendorResponse
 // @Router       /spic_to_erp/vendors/{coopId}/farmers [post]
 func CreateVendorDetailHandler(c *fiber.Ctx) error {
 	// 1. Get CoopID from URL Parameter
@@ -502,6 +609,7 @@ func CreateVendorDetailHandler(c *fiber.Ctx) error {
 			}(existingFarmer.ID)
 		}
 
+<<<<<<< HEAD
 		return c.Status(fiber.StatusCreated).JSON(
 			models.CreateSuccessFarmerResponse{
 				Success: true,
@@ -513,6 +621,19 @@ func CreateVendorDetailHandler(c *fiber.Ctx) error {
 					CreatedAt:         existingFarmer.CreatedAt.Format(time.RFC3339),
 					UpdatedAt:         existingFarmer.UpdatedAt.Format(time.RFC3339),
 					Message:           "Farmer detail created successfully",
+=======
+		return c.Status(fiber.StatusOK).JSON(
+			models.CreateSuccessFarmerVendorResponse{
+				Success: true,
+				Data: models.CreateFarmerVendorResponse{
+					TempERPCustomerID: existingFarmer.TempID,
+					// ErpCustomerId:     existingFarmer.CustomerID,
+					ErpVendorId: existingFarmer.VendorID,
+					FarmerId:    existingFarmer.FarmerID,
+					CreatedAt:   existingFarmer.CreatedAt.Format(time.RFC3339),
+					UpdatedAt:   existingFarmer.UpdatedAt.Format(time.RFC3339),
+					Message:     "Farmer detail created successfully",
+>>>>>>> main
 				},
 			},
 		)
@@ -522,11 +643,19 @@ func CreateVendorDetailHandler(c *fiber.Ctx) error {
 	// 4. BASIC VALIDATIONS
 	// ----------------------------------------------------
 	if payload.FarmerID == "" {
+<<<<<<< HEAD
 		return SendCustomerErrorResponse(c, "You must provide a Farmer ID.", "")
 	}
 
 	if payload.FirstName == "" || payload.LastName == "" {
 		return SendCustomerErrorResponse(
+=======
+		return SendVendorErrorResponse(c, "You must provide a Farmer ID.", "")
+	}
+
+	if payload.FirstName == "" || payload.LastName == "" {
+		return SendVendorErrorResponse(
+>>>>>>> main
 			c,
 			"You must provide the first and last name.",
 			payload.FarmerID,
@@ -534,11 +663,16 @@ func CreateVendorDetailHandler(c *fiber.Ctx) error {
 	}
 
 	if payload.FarmerKycID == "" && payload.ClubLeaderFarmerID == "" {
+<<<<<<< HEAD
 		return SendCustomerErrorResponse(
+=======
+		return SendVendorErrorResponse(
+>>>>>>> main
 			c,
 			"Either farmer_kyc_id or clubLeaderFarmerId must be provided.",
 			payload.FarmerID,
 		)
+<<<<<<< HEAD
 	}
 
 	if coopId == "" {
@@ -595,6 +729,60 @@ func CreateVendorDetailHandler(c *fiber.Ctx) error {
 	}
 
 	// ----------------------------------------------------
+=======
+	}
+
+	if !isCoopAllowed(coopId) {
+		return SendVendorErrorResponse(c, "The indicated cooperative does not exist.", payload.FarmerID)
+	}
+
+	// ----------------------------------------------------
+	// 5. CHECK IF FARMER EXISTS GLOBALLY (ANY COOP)
+	// ----------------------------------------------------
+	farmerExistsGlobally := initializers.DB.
+		Where("farmer_id = ?", payload.FarmerID).
+		First(&globalFarmer).
+		Error == nil
+
+	// ----------------------------------------------------
+	// 6. KYC UNIQUENESS → ONLY IF FARMER IS NEW
+	// ----------------------------------------------------
+	if !farmerExistsGlobally && payload.FarmerKycID != "" {
+		var kycFarmer models.FarmerDetails
+
+		err := initializers.DB.
+			Where("farmer_kyc_id = ?", payload.FarmerKycID).
+			First(&kycFarmer).
+			Error
+
+		if err == nil {
+			return SendVendorErrorResponse(
+				c,
+				"Farmer with the given KYC ID "+payload.FarmerKycID+" already exists.",
+				payload.FarmerID,
+			)
+		}
+	}
+
+	// ----------------------------------------------------
+	// 7. BLOCK SAME FARMER IN SAME COOP
+	// ----------------------------------------------------
+	err = initializers.DB.
+		Where("farmer_id = ? AND coop_id = ?", payload.FarmerID, coopId).
+		First(&existingFarmer).
+		Error
+
+	if err == nil {
+		return SendVendorErrorResponse(
+			c,
+			"The Farmer ID "+payload.FarmerID+
+				" is already registered in the cooperative "+coopId+".",
+			payload.FarmerID,
+		)
+	}
+
+	// ----------------------------------------------------
+>>>>>>> main
 	// 8. CREATE NEW FARMER RECORD
 	// ----------------------------------------------------
 	newDetail := models.FarmerDetails{
@@ -642,6 +830,7 @@ func CreateVendorDetailHandler(c *fiber.Ctx) error {
 	// ----------------------------------------------------
 	// 10. RESPONSE
 	// ----------------------------------------------------
+<<<<<<< HEAD
 	return c.Status(fiber.StatusCreated).JSON(
 		models.CreateSuccessFarmerResponse{
 			Success: true,
@@ -656,6 +845,37 @@ func CreateVendorDetailHandler(c *fiber.Ctx) error {
 			},
 		},
 	)
+=======
+	return c.Status(fiber.StatusOK).JSON(
+		models.CreateSuccessFarmerVendorResponse{
+			Success: true,
+			Data: models.CreateFarmerVendorResponse{
+				TempERPCustomerID: newDetail.TempID,
+				// ErpCustomerId:     newDetail.CustomerID,
+				ErpVendorId: newDetail.VendorID,
+				FarmerId:    newDetail.FarmerID,
+				CreatedAt:   newDetail.CreatedAt.Format(time.RFC3339),
+				UpdatedAt:   newDetail.UpdatedAt.Format(time.RFC3339),
+				Message:     "Farmer detail created successfully",
+			},
+		},
+	)
+}
+
+func SendVendorErrorResponse(c *fiber.Ctx, msg string, farmerId string) error {
+	now := time.Now().UTC()
+	return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+		"success": false,
+		"data": fiber.Map{
+			"tempERPCustomerId": "0",
+			"erpVendorId":       "",
+			"farmerId":          farmerId,
+			"createdAt":         now,
+			"updatedAt":         now,
+			"Message":           msg,
+		},
+	})
+>>>>>>> main
 }
 
 // FindDetails handles GET /spic_to_erp/vendors/:coopId/farmers
@@ -668,8 +888,8 @@ func CreateVendorDetailHandler(c *fiber.Ctx) error {
 // @Param        updatedFrom   query     string  false  " "
 // @Param        updatedTo     query     string  false  " "
 // @Param        page          query     int     false  "Page number"    default(1)
-// @Param        limit         query     int     false  "Items per page" default(10)
-// @Success      200    {object}  models.ListFarmersResponse
+// @Param        perPage         query     int     false  "Items per page" default(10)
+// @Success      200    {object}  models.ListFarmersVendorsResponse
 // @Router       /spic_to_erp/vendors/{coopId}/farmers [get]
 func FindVendorDetailsHandler(c *fiber.Ctx) error {
 	coopId := c.Params("coopId")
@@ -677,11 +897,19 @@ func FindVendorDetailsHandler(c *fiber.Ctx) error {
 	updatedTo := c.Query("updatedTo")
 
 	page, _ := strconv.Atoi(c.Query("page", "1"))
+<<<<<<< HEAD
 	limit, _ := strconv.Atoi(c.Query("limit", "10"))
 	if limit <= 0 {
 		limit = 10
 	}
 	offset := (page - 1) * limit
+=======
+	perPage, _ := strconv.Atoi(c.Query("perPage", "10"))
+	if perPage <= 0 {
+		perPage = 10
+	}
+	offset := (page - 1) * perPage
+>>>>>>> main
 
 	var farmers []models.FarmerDetails
 	var totalRecords int64
@@ -690,6 +918,15 @@ func FindVendorDetailsHandler(c *fiber.Ctx) error {
 		Model(&models.FarmerDetails{}).
 		Where("coop_id = ? AND vendor_id IS NOT NULL AND vendor_id != ''", coopId)
 
+<<<<<<< HEAD
+=======
+	if !isCoopAllowed(coopId) {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"Message": "The indicated cooperative does not exist",
+		})
+	}
+
+>>>>>>> main
 	if updatedFrom != "" && updatedTo != "" {
 
 		fromTime, err := time.Parse(time.RFC3339, updatedFrom)
@@ -706,13 +943,17 @@ func FindVendorDetailsHandler(c *fiber.Ctx) error {
 			})
 		}
 
+<<<<<<< HEAD
 		query = query.Where("updated_at>= ? AND updated_at<= ? ", fromTime, toTime)
+=======
+		query = query.Where("vendor_id_update_at>= ? AND vendor_id_update_at<= ? ", fromTime, toTime)
+>>>>>>> main
 	}
 
 	query.Count(&totalRecords)
 
 	if err := query.
-		Limit(limit).
+		Limit(perPage).
 		Offset(offset).
 		Find(&farmers).Error; err != nil {
 
@@ -722,13 +963,17 @@ func FindVendorDetailsHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	totalPages := int(math.Ceil(float64(totalRecords) / float64(limit)))
+	totalPages := int(math.Ceil(float64(totalRecords) / float64(perPage)))
 
 	// ✅ Map DB → RESPONSE MODEL
+<<<<<<< HEAD
 	data := make([]models.FarmerResponse, 0)
+=======
+	data := make([]models.FarmerVendorResponse, 0)
+>>>>>>> main
 	for _, f := range farmers {
-		data = append(data, models.FarmerResponse{
-			ErpCustomerId:     f.CustomerID,
+		data = append(data, models.FarmerVendorResponse{
+			// ErpCustomerId:     f.CustomerID,
 			TempERPCustomerID: f.TempID,
 			ErpVendorId:       f.VendorID,
 			// TempErpVendorId:   f.TempVendorID, // if exists
@@ -738,11 +983,11 @@ func FindVendorDetailsHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	return c.Status(fiber.StatusOK).JSON(models.ListFarmersResponse{
+	return c.Status(fiber.StatusOK).JSON(models.ListFarmersVendorsResponse{
 		Data: data,
 		Pagination: models.PaginationInfo{
 			Page:        page,
-			Limit:       limit,
+			Limit:       perPage,
 			TotalItems:  int(totalRecords),
 			TotalPages:  totalPages,
 			HasPrevious: page > 1,
@@ -770,7 +1015,7 @@ func GetCustomerDetailHandler(c *fiber.Ctx) error {
 	}
 	var farmer models.FarmerDetails
 	err := initializers.DB.
-		Where("coop_id = ? AND farmer_id = ?", coopId, farmerId).
+		Where("coop_id = ? AND farmer_id = ? AND customer_id IS NOT NULL AND customer_id != '' ", coopId, farmerId).
 		First(&farmer).Error
 
 	if err != nil {
@@ -849,7 +1094,7 @@ func GetVendorDetailHandler(c *fiber.Ctx) error {
 	var farmer models.FarmerDetails
 
 	err := initializers.DB.
-		Where("coop_id = ? AND farmer_id = ?", coopId, farmerId).
+		Where("coop_id = ? AND farmer_id = ? AND vendor_id IS NOT NULL AND vendor_id != '' ", coopId, farmerId).
 		First(&farmer).Error
 
 	if err != nil {

@@ -1,10 +1,19 @@
 package sales
 
 import (
+	"math"
+	"math/rand"
+	"strconv"
 	"time"
 
+<<<<<<< HEAD
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
+=======
+	// "github.com/go-playground/validator/v10"
+	//"github.com/google/uuid"
+
+>>>>>>> main
 	"gorm.io/gorm"
 )
 
@@ -19,6 +28,12 @@ type SalesOrder struct {
 	TempID string `gorm:"column:temp_id;not null" json:"tempId"`
 	CoopID string `gorm:"column:coop_id;not null" json:"coopId"`
 
+<<<<<<< HEAD
+=======
+	ErpSalesOrderId   string `gorm:"column:erp_sales_order_id;size:64" json:"erp_sales_order_id"`
+	ErpSalesOrderCode string `gorm:"column:erp_sales_order_code;size:64" json:"erp_sales_order_code"`
+
+>>>>>>> main
 	OrderID     string `gorm:"column:order_id;size:64;uniqueIndex" json:"order_id"`
 	OrderNumber string `gorm:"column:order_number;size:64" json:"order_number"`
 	ContractID  string `gorm:"column:contract_id;size:64" json:"contract_id"`
@@ -54,10 +69,23 @@ type SalesOrder struct {
 	PickupDate *time.Time `gorm:"column:pickup_date;default:null" json:"pickup_date"`
 	CreatedBy  string     `gorm:"column:created_by;size:64" json:"created_by"`
 
-	CreatedAt *time.Time `gorm:"default:null"`
-	UpdatedAt *time.Time `gorm:"default:null"`
+	RaithuCreatedAt string `gorm:"default:null"`
+	RaithuUpdatedAt string `gorm:"default:null"`
 
+<<<<<<< HEAD
 	OrderItems []SalesOrderItem `gorm:"foreignKey:OrderID;references:OrderID" json:"order_items"`
+=======
+	CreatedAt   *time.Time `gorm:"default:null"`
+	UpdatedAt   *time.Time `gorm:"default:null"`
+	IdUpdatedAt *time.Time `gorm:"default:null"`
+
+	OrderValue  float64 `gorm:"default:null"`
+	TaxAmount   float64 `gorm:"default:null"`
+	TotalAmount float64 `gorm:"default:null"`
+
+	NoofOrderItems int              `gorm:"column:noof_order_items" json:"noofOrderItems"`
+	OrderItems     []SalesOrderItem `gorm:"foreignKey:OrderID;references:OrderID" json:"order_items"`
+>>>>>>> main
 }
 
 func (SalesOrder) TableName() string {
@@ -70,15 +98,49 @@ func (SalesOrder) TableName() string {
 // =======================
 //
 
-func (s *SalesOrder) BeforeCreate(tx *gorm.DB) (err error) {
-	now := time.Now().UTC()
+// BeforeCreate Hook to handle any logic before saving to DB
+func (d *SalesOrder) BeforeCreate(tx *gorm.DB) (err error) {
+	now := time.Now()
 
-	if s.TempID == "" {
-		s.TempID = uuid.New().String()
+	// Fetch last TempID
+	var lastTempID string
+
+	r := rand.New(rand.NewSource(now.UnixNano()))
+
+	// 1. Generate Random Base Value (e.g., between 5000 and 20000)
+	rawOrderValue := 5000.0 + r.Float64()*(20000.0-5000.0)
+
+	// 2. Calculate and Round to 2 decimal places
+	// Formula: round(value * 100) / 100
+	d.OrderValue = math.Round(rawOrderValue*100) / 100
+
+	// Calculate Tax (e.g., 5%) and round
+	d.TaxAmount = math.Round((d.OrderValue*0.05)*100) / 100
+
+	// Final Total
+	d.TotalAmount = d.OrderValue + d.TaxAmount
+
+	err = tx.
+		Model(&SalesOrder{}).
+		Select("temp_id").
+		Where("temp_id IS NOT NULL AND temp_id != ''").
+		Order("id DESC").
+		Limit(1).
+		Scan(&lastTempID).Error
+
+	// Default start value
+	next := 1000
+
+	if err == nil && lastTempID != "" {
+		if n, convErr := strconv.Atoi(lastTempID); convErr == nil {
+			next = n + 1
+		}
 	}
 
-	s.CreatedAt = &now
-	s.UpdatedAt = &now
+	d.TempID = strconv.Itoa(next)
+	d.CreatedAt = &now
+	d.UpdatedAt = &now
+
 	return nil
 }
 
@@ -94,6 +156,8 @@ type SalesOrderItem struct {
 
 	OrderItemID     string `gorm:"column:order_item_id;size:64" json:"order_item_id"`
 	OrderItemNumber string `gorm:"column:order_item_number;size:64" json:"order_item_number"`
+	ErpItemID       string `gorm:"column:erp_item_id;size:64" json:"erp_item_id"`
+	ErpItemID2      string `gorm:"column:erp_item_id_2;size:64" json:"erp_item_id_2"`
 
 	StockKeepingUnit string `gorm:"column:stock_keeping_unit;size:64" json:"stock_keeping_unit"`
 	ProductGroup     string `gorm:"column:product_group;size:64" json:"product_group"`
@@ -173,5 +237,8 @@ type CreateSalesOrderSchema struct {
 	PickupDate string `json:"pickup_date"`
 	CreatedBy  string `json:"created_by"`
 
-	OrderItems []SalesOrderItem `json:"orderItems"`
+	RaithuCreatedAt string `json:"created_at"`
+	RaithuUpdatedAt string `json:"updated_at"`
+
+	OrderItems []SalesOrderItem `json:"order_items"`
 }
