@@ -92,7 +92,7 @@ func main() {
 				// Delivery Proof Routes
 				cust.Post("/deliverydocuments/:deliveryNoteId/proof", controllers.CreateDeliveryDocumentsProofHandler)
 				cust.Get("/deliverydocuments/invoices", controllers.GetDeliveryDocumentsProofHandler)
-				cust.Get("/deliverydocuments/:deliveryNoteId/invoices", controllers.GetDeliveryDocumentsProofParticularHandler)
+				cust.Get("/deliverydocuments/:deliveryNoteId/invoices", controllers.GetDeliveryDocumentsInvoiceHandler)
 			})
 		})
 

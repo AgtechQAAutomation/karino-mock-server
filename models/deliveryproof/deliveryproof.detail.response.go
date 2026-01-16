@@ -1,5 +1,7 @@
 package deliveryproof
 
+import "time"
+
 type InvoicesResponse struct {
 	Invoices []Invoice `json:"invoices"`
 }
@@ -22,7 +24,7 @@ type InvoiceDeliveryNote struct {
 	TempERPDeliveryNoteId   string  `json:"tempERPDeliveryNoteId"`
 	ERPDeliveryDocumentId   string  `json:"erpDeliveryDocumentId"`
 	ERPDeliveryDocumentCode string  `json:"erpDeliveryDocumentCode"`
-	ERPDeliveryDocumentDate string  `json:"erpDeliveryDocumentDate"`
+	ERPDeliveryDocumentDate *time.Time  `json:"erpDeliveryDocumentDate"`
 	ERPItemID               string  `json:"erpItemID"`
 	Quantity                float64 `json:"quantity"`
 	OrderItemID             string  `json:"order_item_id"`

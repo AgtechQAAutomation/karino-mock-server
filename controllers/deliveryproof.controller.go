@@ -4,13 +4,14 @@ import (
 	"fmt"
 	"math"
 	"time"
-
+	"regexp"
 	"github.com/AgtechQAAutomation/karino-mock-server/initializers"
 	"github.com/gofiber/fiber/v2"
 
 	// "github.com/AgtechQAAutomation/karino-mock-server/models/delivery"
 	"github.com/AgtechQAAutomation/karino-mock-server/models/delivery"
 	"github.com/AgtechQAAutomation/karino-mock-server/models/deliveryproof"
+	"github.com/AgtechQAAutomation/karino-mock-server/models/sales"
 
 	// "context"
 	"strconv"
@@ -303,7 +304,7 @@ func GetDeliveryDocumentsProofHandler(c *fiber.Ctx) error {
 	// return c.Status(fiber.StatusCreated).JSON(response)
 }
 
-// GetDeliveryDocumentsProofParticularHandler handles GET /spic_to_erp/customers/:coopId/deliverydocuments/:deliveryNoteId/proof
+// GetDeliveryDocumentsInvoiceHandler handles GET /spic_to_erp/customers/:coopId/deliverydocuments/:deliveryNoteId/proof
 // @Summary      Create deliverydocuments proof for a sales order
 // @Description  Create deliverydocuments proof for a sales order
 // @Tags         deliverydocuments proof
@@ -313,90 +314,118 @@ func GetDeliveryDocumentsProofHandler(c *fiber.Ctx) error {
 // @Param        deliveryNoteId path      string  true   " "
 // @Success      200    {object}  deliveryproof.InvoicesResponse
 // @Router       /spic_to_erp/customers/{coopId}/deliverydocuments/{deliveryNoteId}/proof [get]
-func GetDeliveryDocumentsProofParticularHandler(c *fiber.Ctx) error {
+func GetDeliveryDocumentsInvoiceHandler(c *fiber.Ctx) error {
 	coopId := c.Params("coopId")
-	orderID := c.Params("orderId")
-	emptydata := make([]deliveryproof.InvoicesResponse, 0)
+	deliveryNoteId := c.Params("deliveryNoteId")
 
-	// if orderID == "" {
-	//  return c.Status(400).JSON(fiber.Map{
-	//      "success": false,
-	//      "message": "order_id is required",
-	//  })
-	// }
+	// 1️⃣ Validate coop
 	if !isCoopAllowed(coopId) {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"Message": "The indicated cooperative does not exist.",
-		})
-	}
-	var order deliveryproof.Waybill
-	if err := initializers.DB.
-		Where("order_id = ? AND coop_id = ?", orderID, coopId).
-		First(&order).Error; err != nil {
-
-		return c.Status(200).JSON(fiber.Map{
-			"deliverynotes": emptydata,
-		})
-	}
-	var orderItems []deliveryproof.WaybillItem
-	if err := initializers.DB.
-		Where("order_id = ?", orderID).
-		Find(&orderItems).Error; err != nil {
-
-		return c.Status(500).JSON(fiber.Map{
 			"success": false,
-			"message": "Failed to fetch order items",
+			"message": "Invalid cooperative ID",
 		})
 	}
-	var deliveryDocs []deliveryproof.Waybill
+
+	// 2️⃣ Fetch waybill (ONE per delivery note)
+	var waybill deliveryproof.Waybill
 	if err := initializers.DB.
-		Where("order_id = ? AND coop_id = ?", orderID, coopId).
-		Find(&deliveryDocs).Error; err != nil {
+		Where("delivery_note_id = ? AND coop_id = ?", deliveryNoteId, coopId).
+		First(&waybill).Error; err != nil {
 
-		return c.Status(500).JSON(fiber.Map{
-			"success": false,
-			"message": "Failed to fetch delivery documents",
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"invoices": []interface{}{},
 		})
 	}
-	deliveryMap := make(map[string][]deliveryproof.Waybill)
 
-	for _, doc := range deliveryDocs {
-		deliveryMap[doc.DeliveryNoteID] =
-			append(deliveryMap[doc.DeliveryNoteID], doc)
-	}
-	var response deliveryproof.InvoicesResponse
+	// 3️⃣ Generate invoice fields if not present
+	if waybill.ErpInvoiceId == "" {
 
-	for docCode, docs := range deliveryMap {
+		now := time.Now().UTC()
 
-		note := deliveryproof.Invoice{
-			ERPInvoiceId:   docs[0].DeliveryNoteID,
-			ERPInvoiceCode: docCode,
-			// ERPInvoiceDate: *docs[0].CreatedAt,
-		}
+		// ---- Generate ERP Invoice ID ----
+		var last deliveryproof.Waybill
+		next := 1
 
-		for _, d := range docs {
-			for _, item := range orderItems {
-				if item.OrderID == d.OrderID {
+		err := initializers.DB.
+			Where("erp_invoice_id IS NOT NULL AND erp_invoice_id != ''").
+			Order("id DESC").
+			First(&last).Error
 
-					note.Items = append(note.Items, deliveryproof.InvoiceItem{
-						// ERPItemID:       item.ErpItemID2,
-						StockKeepingUnit: item.StockKeepingUnit,
-						Quantity:         item.Quantity,
-						DeliveryNote: deliveryproof.InvoiceDeliveryNote{
-							// TempERPDeliveryNoteId: order.TempID,
-							ERPDeliveryDocumentId:   order.DeliveryNoteID,
-							ERPDeliveryDocumentCode: order.DeliveryNoteDocument,
-							ERPDeliveryDocumentDate: order.OrderID,
-							Quantity:                item.Quantity,
-							// ERPItemID:           item.ErpItemID,
-							// OrderItemID:         item.OrderItemID,
-						},
-					})
-				}
+		if err == nil && last.ErpInvoiceId != "" {
+			re := regexp.MustCompile(`\d+$`)
+			if m := re.FindString(last.ErpInvoiceId); m != "" {
+				n, _ := strconv.Atoi(m)
+				next = n + 1
 			}
 		}
 
-		response.Invoices = append(response.Invoices, note)
+		waybill.ErpInvoiceId = fmt.Sprintf("ERP-INV-%05d", next)
+		waybill.ErpInvoiceCode = fmt.Sprintf("INV-2026/%05d", next)
+		waybill.ErpInvoiceDate = &now
+
+		initializers.DB.Save(&waybill)
 	}
-	return c.Status(200).JSON(response)
+
+	// 4️⃣ Fetch delivery document
+	var deliveryDoc delivery.CreateDeliveryDocuments
+	if err := initializers.DB.
+		Where("delivery_document_id = ?", waybill.DeliveryNoteID).
+		First(&deliveryDoc).Error; err != nil {
+
+		return c.Status(500).JSON(fiber.Map{
+			"success": false,
+			"message": "Delivery document not found",
+		})
+	}
+
+	// 5️⃣ Fetch waybill items
+	var waybillItems []deliveryproof.WaybillItem
+	if err := initializers.DB.
+		Where("order_id = ?", waybill.OrderID).
+		Find(&waybillItems).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"success": false,
+			"message": "Waybill items not found",
+		})
+	}
+
+	// 6️⃣ Fetch sales order (for ERP IDs)
+	var order sales.SalesOrder
+	initializers.DB.
+		Where("order_id = ?", deliveryDoc.OrderID).
+		First(&order)
+
+	// 7️⃣ Build response
+	var invoiceItems []deliveryproof.InvoiceItem
+
+	for _, item := range waybillItems {
+
+		invoiceItems = append(invoiceItems, deliveryproof.InvoiceItem{
+			ERPItemID:        item.ErpItemID,
+			StockKeepingUnit: item.StockKeepingUnit,
+			Quantity:         item.Quantity,
+			DeliveryNote: deliveryproof.InvoiceDeliveryNote{
+				TempERPDeliveryNoteId: waybill.TempID,
+				ERPDeliveryDocumentId: deliveryDoc.DeliveryDocumentID,
+				ERPDeliveryDocumentCode: deliveryDoc.DeliveryDocumentCode,
+				ERPDeliveryDocumentDate: deliveryDoc.CreatedAt,
+				ERPItemID:              item.ErpItemID,
+				Quantity:               item.Quantity,
+				// OrderItemID:            item.OrderItemID,
+			},
+		})
+	}
+
+	response := deliveryproof.InvoicesResponse{
+		Invoices: []deliveryproof.Invoice{
+			{
+				ERPInvoiceId:   waybill.ErpInvoiceId,
+				ERPInvoiceCode: waybill.ErpInvoiceCode,
+				ERPInvoiceDate: waybill.ErpInvoiceDate.Format(time.RFC3339),
+				Items:          invoiceItems,
+			},
+		},
+	}
+
+	return c.Status(fiber.StatusOK).JSON(response)
 }

@@ -67,6 +67,9 @@ type Waybill struct {
 	ContractID string `gorm:"size:128"`
 	CoopID     string `gorm:"column:coop_id;not null" json:"coopId"`
 	TempID string `gorm:"column:temp_id;not null" json:"temp_id"`
+	ErpInvoiceId string `gorm:"column:erp_invoice_id;not null" json:"erp_invoice_id"`
+	ErpInvoiceCode string `gorm:"column:erp_invoice_code;not null" json:"erp_invoice_code"`
+	ErpInvoiceDate *time.Time `gorm:"default:null"`
 	// OrderID must be a string and unique to be used as a reference
 	OrderID              string `gorm:"column:order_id;size:64;uniqueIndex" json:"order_id"`
 	RegionID             int    `json:"region_id"`
@@ -97,6 +100,7 @@ func (Waybill) TableName() string {
 
 type WaybillItem struct {
 	ID uint `gorm:"primaryKey;autoIncrement"`
+	CoopID     string `gorm:"column:coop_id;not null" json:"coopId"`
 	// This MUST be string to match Waybill.OrderID
 	OrderID         string  `gorm:"column:order_id;size:64;index;not null" json:"order_id"`
 	Name            string  `gorm:"size:255"`
