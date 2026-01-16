@@ -15,7 +15,7 @@ import (
 
 	// "context"
 	"strconv"
-
+	"gorm.io/gorm"
 	"github.com/google/uuid"
 	// "github.com/AgtechQAAutomation/karino-mock-server/query"
 )
@@ -23,6 +23,47 @@ import (
 func GenerateAndSetNextERPproofIDGen() string {
 	return uuid.New().String()
 }
+
+func GenerateInvoiceDetails(db *gorm.DB) (
+	invoiceID string,
+	invoiceCode string,
+	invoiceDate time.Time,
+	err error,
+) {
+
+	type LastInvoice struct {
+		ErpInvoiceCode string
+	}
+
+	var last LastInvoice
+
+	// 1. Fetch last generated invoice code
+	err = db.
+		Table("way_bill").
+		Select("erp_invoice_code").
+		Where("erp_invoice_code IS NOT NULL AND erp_invoice_code != ''").
+		Order("id DESC").
+		Limit(1).
+		Scan(&last).Error
+
+	next := 1
+
+	if err == nil && last.ErpInvoiceCode != "" {
+		re := regexp.MustCompile(`(\d+)$`)
+		if m := re.FindString(last.ErpInvoiceCode); m != "" {
+			n, _ := strconv.Atoi(m)
+			next = n + 1
+		}
+	}
+
+	// 2. Generate invoice values
+	invoiceID = uuid.New().String()
+	invoiceCode = fmt.Sprintf("INV-2026-%05d", next)
+	invoiceDate = time.Now().UTC()
+
+	return
+}
+
 
 // CreateDeliveryDocumentsProofHandler handles POST /spic_to_erp/customers/:coopId/deliverydocuments/:deliveryNoteId/proof
 // @Summary      Create deliverydocuments proof for a sales order
@@ -72,7 +113,13 @@ func CreateDeliveryDocumentsProofHandler(c *fiber.Ctx) error {
 	if err != nil {
 		return SendDocumentdeliveryProofErrorResponse(c, "The delivery guide has been canceled or is no longer pending.")
 	}
-
+	invoiceID, invoiceCode, invoiceDate, err := GenerateInvoiceDetails(initializers.DB)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"success": false,
+			"message": "Failed to generate invoice",
+		})
+	}
 	// -----------------------------------------------------------
 	// 5. MERGE DUPLICATE ITEMS BY STOCK KEEPING UNIT
 	// -----------------------------------------------------------
@@ -148,6 +195,9 @@ func CreateDeliveryDocumentsProofHandler(c *fiber.Ctx) error {
 		RegionPartID:         payload.Waybill.RegionPartID,
 		SettlementID:         payload.Waybill.SettlementID,
 		SettlementPartID:     payload.Waybill.SettlementPartID,
+		ErpInvoiceId: 			invoiceID,
+		ErpInvoiceCode: 		invoiceCode,
+		ErpInvoiceDate: 		&invoiceDate,
 		CustomZone1ID:        payload.Waybill.CustomZone1ID,
 		CustomZone2ID:        payload.Waybill.CustomZone2ID,
 		SalesOrderID:         payload.Waybill.SalesOrderID,
