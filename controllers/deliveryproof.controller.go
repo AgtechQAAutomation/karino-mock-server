@@ -38,6 +38,8 @@ func CreateDeliveryDocumentsProofHandler(c *fiber.Ctx) error {
 	var payload deliveryproof.CreateDeliveryDocumentProofSchema
 	coopId := c.Params("coopId")
 	deliveryNoteId := c.Params("deliveryNoteId")
+
+	// 1. Parse JSON
 	if err := c.BodyParser(&payload); err != nil {
 		return c.Status(400).JSON(fiber.Map{
 			"success": false,
@@ -45,10 +47,12 @@ func CreateDeliveryDocumentsProofHandler(c *fiber.Ctx) error {
 		})
 	}
 
+	// 2. Coop check
 	if !isCoopAllowed(coopId) {
 		return SendDocumentdeliveryProofErrorResponse(c, "The indicated cooperative does not exist.")
 	}
 
+	// 3. Basic Delivery Note validations
 	if payload.Waybill.DeliveryNoteID == "" {
 		return SendDocumentdeliveryProofErrorResponse(c, "Please indicate the ID of the delivery guide.")
 	}
@@ -57,20 +61,87 @@ func CreateDeliveryDocumentsProofHandler(c *fiber.Ctx) error {
 		return SendDocumentdeliveryProofErrorResponse(c, "The guide ID, URL and information sent are not the same.")
 	}
 
+	// 4. Check existing delivery note is not expired
 	var existingdeliveryNoteId delivery.CreateDeliveryDocuments
+	err := initializers.DB.
+		Where("delivery_document_id = ? AND coop_id = ? AND status = ?",
+			deliveryNoteId, coopId, "NOT EXPIRED").
+		First(&existingdeliveryNoteId).Error
 
-	deliveryNoteIdMatching := initializers.DB.Where("delivery_document_id = ? AND coop_id = ? AND status = ?", deliveryNoteId, coopId, "NOT EXPIRED").First(&existingdeliveryNoteId).Error
-
-	if deliveryNoteIdMatching != nil {
+	if err != nil {
 		return SendDocumentdeliveryProofErrorResponse(c, "The delivery guide has been canceled or is no longer pending.")
 	}
 
-	// ------------------------------------------
-	// 1️⃣ MAP: WaybillProof → Waybill (DB Model)
-	// ------------------------------------------
+	// -----------------------------------------------------------
+	// 5. MERGE DUPLICATE ITEMS BY STOCK KEEPING UNIT
+	// -----------------------------------------------------------
+	merged := make(map[string]deliveryproof.WaybillItem)
+
+	for _, item := range payload.WaybillItems {
+		sku := item.StockKeepingUnit
+
+		// Already exists → add counts
+		if existing, found := merged[sku]; found {
+			existing.NumberOfUnits += item.NumberOfUnits
+			existing.Quantity += item.Quantity
+			merged[sku] = existing
+		} else {
+			// Convert payload struct → DB Struct
+			merged[sku] = deliveryproof.WaybillItem{
+				OrderID:          payload.Waybill.OrderID,
+				Name:             item.Name,
+				NumberOfUnits:    item.NumberOfUnits,
+				Quantity:         item.Quantity,
+				QuantityUnitKey:  item.QuantityUnitKey,
+				UnitPrice:        item.UnitPrice,
+				Price:            item.Price,
+				PriceUnitKey:     item.PriceUnitKey,
+				Status:           item.Status,
+				StockKeepingUnit: item.StockKeepingUnit,
+			}
+		}
+	}
+
+	// Map → slice
+	var uniqueItems []deliveryproof.WaybillItem
+	for _, v := range merged {
+		uniqueItems = append(uniqueItems, v)
+	}
+
+	// -----------------------------------------------------------
+	// 6. VALIDATE merged items BEFORE INSERTING ANYTHING
+	// -----------------------------------------------------------
+	var validatedItems []deliveryproof.WaybillItem
+
+	for _, item := range uniqueItems {
+		var deliveryNotes []delivery.CreateDeliveryDocuments
+
+		findErr := initializers.DB.
+			Where("delivery_document_id = ? AND stock_kepping_unit = ?",
+				deliveryNoteId, item.StockKeepingUnit).
+			Find(&deliveryNotes).
+			Error
+
+		if findErr != nil {
+			return SendDocumentdeliveryProofErrorResponse(c,
+				"Database error while checking item ("+item.StockKeepingUnit+")")
+		}
+
+		if len(deliveryNotes) == 0 {
+			return SendDocumentdeliveryProofErrorResponse(c,
+				"The indicated item does not exist ("+item.StockKeepingUnit+").")
+		}
+
+		// Passed validation
+		validatedItems = append(validatedItems, item)
+	}
+
+	// -----------------------------------------------------------
+	// 7. ALL VALID — INSERT WAYBILL NOW (NO INSERTS BEFORE THIS)
+	// -----------------------------------------------------------
 	newWaybill := deliveryproof.Waybill{
 		ContractID:           payload.Waybill.ContractID,
-		CoopID:               coopId, // <-- YOU WILL PASS coopId from route
+		CoopID:               coopId,
 		OrderID:              payload.Waybill.OrderID,
 		RegionID:             payload.Waybill.RegionID,
 		RegionPartID:         payload.Waybill.RegionPartID,
@@ -83,14 +154,14 @@ func CreateDeliveryDocumentsProofHandler(c *fiber.Ctx) error {
 		CustomerID:           payload.Waybill.CustomerID,
 		DeliveryNoteID:       payload.Waybill.DeliveryNoteID,
 		DeliveryNoteDocument: payload.Waybill.DeliveryNoteDocument,
-
-		// Delivery photos → JSON string
 		DeliveryPhotos: fmt.Sprintf(`[
             {"url1":"%s","url2":"%s"}
-        ]`, payload.Waybill.DeliveryPhotoProofURL1, payload.Waybill.DeliveryPhotoProofURL2),
+        ]`,
+			payload.Waybill.DeliveryPhotoProofURL1,
+			payload.Waybill.DeliveryPhotoProofURL2,
+		),
 	}
 
-	// Insert waybill
 	if err := initializers.DB.Create(&newWaybill).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{
 			"success": false,
@@ -99,51 +170,30 @@ func CreateDeliveryDocumentsProofHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	// ------------------------------------------
-	// 2️⃣ MAP: WaybillItemProof → WaybillItem
-	// ------------------------------------------
-	var items []deliveryproof.WaybillItem
+	// -----------------------------------------------------------
+	// 8. INSERT MERGED + VALIDATED ITEMS
+	// -----------------------------------------------------------
+	for i := range validatedItems {
+		//validatedItems[i].TempID = newWaybill.TempID
+		validatedItems[i].ErpItemID = GenerateAndSetNextERPproofIDGen()
+		validatedItems[i].ErpItemID2 = GenerateAndSetNextERPproofIDGen()
+	}
 
-	for _, item := range payload.WaybillItems {
-		StockKeppingUnit := initializers.DB.Where("delivery_document_id = ? AND stock_kepping_unit = ?", deliveryNoteId, item.StockKeepingUnit).First(&existingdeliveryNoteId).Error
-
-		if StockKeppingUnit != nil {
-			return SendDocumentdeliveryProofErrorResponse(c, "The indicated item does not exist"+"("+item.StockKeepingUnit+").")
-		}
-		items = append(items, deliveryproof.WaybillItem{
-			OrderID:          payload.Waybill.OrderID, // FK match
-			Name:             item.Name,
-			NumberOfUnits:    item.NumberOfUnits,
-			Quantity:         item.Quantity,
-			QuantityUnitKey:  item.QuantityUnitKey,
-			UnitPrice:        item.UnitPrice,
-			ErpItemID:        GenerateAndSetNextERPproofIDGen(),
-			ErpItemID2:       GenerateAndSetNextERPproofIDGen(),
-			Price:            item.Price,
-			PriceUnitKey:     item.PriceUnitKey,
-			Status:           item.Status,
-			StockKeepingUnit: item.StockKeepingUnit,
+	if err := initializers.DB.Create(&validatedItems).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{
+			"success": false,
+			"error":   "Failed to insert waybill items",
+			"reason":  err.Error(),
 		})
 	}
 
-	// Insert items
-	if len(items) > 0 {
-		if err := initializers.DB.Create(&items).Error; err != nil {
-			return c.Status(500).JSON(fiber.Map{
-				"success": false,
-				"error":   "Failed to insert waybill items",
-				"reason":  err.Error(),
-			})
-		}
-	}
-
-	// ------------------------------------------
-	// 3️⃣ RETURN RESPONSE
-	// ------------------------------------------
+	// -----------------------------------------------------------
+	// 9. RESPONSE
+	// -----------------------------------------------------------
 	return c.Status(201).JSON(deliveryproof.CreateDocumentdeliveryProofSuccessResponse{
 		Success: true,
 		Data: deliveryproof.CreateDocumentdeliveryProofResponse{
-			TempERPProofId: newWaybill.TempID, // return primary key
+			TempERPProofId: newWaybill.TempID,
 			OrderId:        newWaybill.OrderID,
 			Message:        "Delivery proof created successfully",
 		},

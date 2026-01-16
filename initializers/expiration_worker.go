@@ -7,7 +7,6 @@ import (
 	"gorm.io/gorm"
 )
 
-
 func MarkExpiredRows(db *gorm.DB, expirationSeconds int) error {
 
 	query := `
@@ -36,4 +35,3 @@ func StartExpirationWorker(db *gorm.DB) {
 		}
 	}()
 }
-
