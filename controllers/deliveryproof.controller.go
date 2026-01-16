@@ -263,6 +263,93 @@ func SendDocumentdeliveryProofErrorResponse(c *fiber.Ctx, message string) error 
 	})
 }
 
+// func GetDeliveryDocumentsProofHandler(c *fiber.Ctx) error {
+// 	coopId := c.Params("coopId")
+// 	updatedFrom := c.Query("updatedFrom")
+// 	updatedTo := c.Query("updatedTo")
+
+// 	page, _ := strconv.Atoi(c.Query("page", "1"))
+// 	limit, _ := strconv.Atoi(c.Query("perPage", "10"))
+
+// 	if page < 1 {
+// 		page = 1
+// 	}
+// 	if limit <= 0 {
+// 		limit = 10
+// 	}
+	
+// 	//Coopid check
+// 	if !isCoopAllowed(coopId) {
+// 		return SendDocumentdeliveryProofErrorResponse(c, "The indicated cooperative does not exist.")
+// 	}
+
+// 	offset := (page - 1) * limit
+
+// 	baseQuery := initializers.DB.
+// 		Table("delivery_documents").
+// 		Where("coop_id = ?", coopId)
+
+// 	// Optional date filter
+// 	if updatedFrom != "" && updatedTo != "" {
+// 		fromTime, err := time.Parse(time.RFC3339, updatedFrom)
+// 		if err != nil {
+// 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+// 				"message": "Invalid updatedFrom format. Use ISO8601",
+// 			})
+// 		}
+
+// 		toTime, err := time.Parse(time.RFC3339, updatedTo)
+// 		if err != nil {
+// 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+// 				"message": "Invalid updatedTo format. Use ISO8601",
+// 			})
+// 		}
+
+// 		baseQuery = baseQuery.Where(
+// 			"updated_at >= ? AND updated_at <= ?",
+// 			fromTime,
+// 			toTime,
+// 		)
+// 	}
+
+// 	var totalItems int64
+// 	if err := baseQuery.
+// 		Select("COUNT(DISTINCT delivery_document_id)").
+// 		Count(&totalItems).Error; err != nil {
+// 		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{
+// 			"message": "Failed to count delivery documents",
+// 		})
+// 	}
+
+// 	totalPages := int(math.Ceil(float64(totalItems) / float64(limit)))
+
+// 	var data []deliveryproof.DeliveryDocumentDTO
+// 	if err := baseQuery.
+// 		Select(`
+// 			DISTINCT
+// 			delivery_document_id   AS erp_delivery_document_id,
+// 			delivery_document_code AS erp_delivery_document_code
+// 		`).
+// 		Limit(limit).
+// 		Offset(offset).
+// 		Scan(&data).Error; err != nil {
+// 		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{
+// 			"message": "Failed to fetch delivery documents",
+// 		})
+// 	}
+// 	return c.Status(fiber.StatusOK).JSON(deliveryproof.ListDeliveryDocumentsResponse{
+// 		Data: data,
+// 		Pagination: deliveryproof.PaginationInfo{
+// 			Page:        page,
+// 			Limit:       limit,
+// 			TotalItems:  int(totalItems),
+// 			TotalPages:  totalPages,
+// 			HasPrevious: page > 1,
+// 			HasNext:     page < totalPages,
+// 		},
+// 	})
+// }
+
 // GetDeliveryDocumentsProofHandler handles GET /spic_to_erp/customers/:coopId/deliverydocuments/invoices
 // @Summary      Create deliverydocuments proof for a sales order within date range
 // @Description  Create deliverydocuments proof for a sales order within date range
@@ -280,79 +367,91 @@ func GetDeliveryDocumentsProofHandler(c *fiber.Ctx) error {
 	coopId := c.Params("coopId")
 	updatedFrom := c.Query("updatedFrom")
 	updatedTo := c.Query("updatedTo")
-	var deliverydocuments []deliveryproof.DocumentdeliveryProof
-	emptydata := make([]deliveryproof.ListDeliveryDocumentsResponse, 0)
 
-	if !isCoopAllowed(coopId) {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-			"Message": "The indicated cooperative does not exist.",
-		})
-	}
 	page, _ := strconv.Atoi(c.Query("page", "1"))
-	perPage, _ := strconv.Atoi(c.Query("perPage", "10"))
-	if perPage <= 0 {
-		perPage = 10
+	limit, _ := strconv.Atoi(c.Query("perPage", "10"))
+
+	if page < 1 {
+		page = 1
+	}
+	if limit <= 0 {
+		limit = 10
 	}
 
-	offset := (page - 1) * perPage
-	var totalRecords int64
+	offset := (page - 1) * limit
 
-	query := initializers.DB.
-		Model(&deliveryproof.WaybillItem{}).
-		Where("coop_id = ?", coopId)
-
+	// Base query
+	baseQuery := initializers.DB.
+	Table("delivery_documents").
+	Where("coop_id = ?", coopId).
+	Where("status = ?", "NOT EXPIRED")
 	if updatedFrom != "" && updatedTo != "" {
 		fromTime, err := time.Parse(time.RFC3339, updatedFrom)
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"Message": "Invalid updatedFrom format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)",
+				"message": "Invalid updatedFrom format. Use ISO8601",
 			})
 		}
 
 		toTime, err := time.Parse(time.RFC3339, updatedTo)
 		if err != nil {
 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-				"Message": "Invalid updatedTo format. Use ISO8601 (YYYY-MM-DDTHH:MM:SSZ)",
+				"message": "Invalid updatedTo format. Use ISO8601",
 			})
 		}
 
-		query = query.Where("updated_at>= ? AND updated_at<= ?", fromTime, toTime)
+		baseQuery = baseQuery.Where(
+			"updated_at >= ? AND updated_at <= ?",
+			fromTime,
+			toTime,
+		)
 	}
 
-	query.Count(&totalRecords)
-
-	if err := query.
-		Limit(perPage).
-		Offset(offset).
-		Find(&deliverydocuments).Error; err != nil {
-
+	// ---- COUNT DISTINCT DOCUMENTS ----
+	var totalItems int64
+	if err := baseQuery.
+		Select("COUNT(DISTINCT delivery_document_id)").
+		Count(&totalItems).Error; err != nil {
 		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{
-			"Invoice": emptydata,
+			"message": "Failed to count delivery documents",
 		})
 	}
 
-	totalPages := int(math.Ceil(float64(totalRecords) / float64(perPage)))
+	totalPages := int(math.Ceil(float64(totalItems) / float64(limit)))
 
-	data := make([]deliveryproof.DocumentdeliveryProof, 0)
-	for _, f := range deliverydocuments {
-		data = append(data, deliveryproof.DocumentdeliveryProof{
-			ERPDeliveryDocumentId:   f.ERPDeliveryDocumentId,
-			ERPDeliveryDocumentCode: f.ERPDeliveryDocumentCode,
-		})
+	// ---- FETCH DISTINCT DOCUMENTS ----
+	type DeliveryDocumentDTO struct {
+		ERPDeliveryDocumentId   string `json:"erpDeliveryDocumentId"`
+		ERPDeliveryDocumentCode string `json:"erpDeliveryDocumentCode"`
 	}
 
-	return c.Status(fiber.StatusOK).JSON(deliveryproof.ListDeliveryDocumentsResponse{
-		Data: data,
-		Pagination: deliveryproof.PaginationInfo{
-			Page:        page,
-			Limit:       perPage,
-			TotalItems:  int(totalRecords),
-			TotalPages:  totalPages,
-			HasPrevious: page > 1,
-			HasNext:     page < totalPages,
+	data := make([]DeliveryDocumentDTO, 0)
+
+	baseQuery.Select(`
+		DISTINCT
+		delivery_document_id   AS erp_delivery_document_id,
+		delivery_document_code AS erp_delivery_document_code
+	`).
+	Limit(limit).Offset(offset).Scan(&data)
+	// .Error; 
+	// err != nil {
+	// 	return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{
+	// 		"message": "Failed to fetch delivery documents",
+	// 	})
+	// }
+
+	// ---- RESPONSE ----
+	return c.Status(fiber.StatusOK).JSON(fiber.Map{
+		"data": data,
+		"pagination": fiber.Map{
+			"page":         page,
+			"limit":        limit,
+			"total_items":  totalItems,
+			"total_pages":  totalPages,
+			"has_previous": page > 1,
+			"has_next":     page < totalPages,
 		},
 	})
-	// return c.Status(fiber.StatusCreated).JSON(response)
 }
 
 // GetDeliveryDocumentsInvoiceHandler handles GET /spic_to_erp/customers/:coopId/deliverydocuments/:deliveryNoteId/proof
@@ -369,7 +468,7 @@ func GetDeliveryDocumentsInvoiceHandler(c *fiber.Ctx) error {
 	coopId := c.Params("coopId")
 	deliveryNoteId := c.Params("deliveryNoteId")
 
-	// 1️⃣ Validate coop
+	// Validate coop
 	if !isCoopAllowed(coopId) {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"success": false,
@@ -377,7 +476,7 @@ func GetDeliveryDocumentsInvoiceHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	// 2️⃣ Fetch waybill (ONE per delivery note)
+	// Fetch waybill (ONE per delivery note)
 	var waybill deliveryproof.Waybill
 	if err := initializers.DB.
 		Where("delivery_note_id = ? AND coop_id = ?", deliveryNoteId, coopId).
@@ -388,7 +487,7 @@ func GetDeliveryDocumentsInvoiceHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	// 4️⃣ Fetch delivery document
+	// Fetch delivery document
 	var deliveryDoc delivery.CreateDeliveryDocuments
 	if err := initializers.DB.
 		Where("delivery_document_id = ?", waybill.DeliveryNoteID).
@@ -400,7 +499,7 @@ func GetDeliveryDocumentsInvoiceHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	// 5️⃣ Fetch waybill items
+	// Fetch waybill items
 	var waybillItems []deliveryproof.WaybillItem
 	if err := initializers.DB.
 		Where("order_id = ?", waybill.OrderID).
@@ -411,13 +510,13 @@ func GetDeliveryDocumentsInvoiceHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	// 6️⃣ Fetch sales order (for ERP IDs)
+	// Fetch sales order (for ERP IDs)
 	var order sales.SalesOrder
 	initializers.DB.
 		Where("order_id = ?", deliveryDoc.OrderID).
 		First(&order)
 
-	// 7️⃣ Build response
+	// Build response
 	var invoiceItems []deliveryproof.InvoiceItem
 
 	for _, item := range waybillItems {
