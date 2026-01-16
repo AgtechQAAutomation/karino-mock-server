@@ -3,8 +3,9 @@ package controllers
 import (
 	"fmt"
 	"math"
-	"time"
 	"regexp"
+	"time"
+
 	"github.com/AgtechQAAutomation/karino-mock-server/initializers"
 	"github.com/gofiber/fiber/v2"
 
@@ -15,8 +16,9 @@ import (
 
 	// "context"
 	"strconv"
-	"gorm.io/gorm"
+
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 	// "github.com/AgtechQAAutomation/karino-mock-server/query"
 )
 
@@ -63,7 +65,6 @@ func GenerateInvoiceDetails(db *gorm.DB) (
 
 	return
 }
-
 
 // CreateDeliveryDocumentsProofHandler handles POST /spic_to_erp/customers/:coopId/deliverydocuments/:deliveryNoteId/proof
 // @Summary      Create deliverydocuments proof for a sales order
@@ -195,9 +196,9 @@ func CreateDeliveryDocumentsProofHandler(c *fiber.Ctx) error {
 		RegionPartID:         payload.Waybill.RegionPartID,
 		SettlementID:         payload.Waybill.SettlementID,
 		SettlementPartID:     payload.Waybill.SettlementPartID,
-		ErpInvoiceId: 			invoiceID,
-		ErpInvoiceCode: 		invoiceCode,
-		ErpInvoiceDate: 		&invoiceDate,
+		ErpInvoiceId:         invoiceID,
+		ErpInvoiceCode:       invoiceCode,
+		ErpInvoiceDate:       &invoiceDate,
 		CustomZone1ID:        payload.Waybill.CustomZone1ID,
 		CustomZone2ID:        payload.Waybill.CustomZone2ID,
 		SalesOrderID:         payload.Waybill.SalesOrderID,
@@ -387,35 +388,6 @@ func GetDeliveryDocumentsInvoiceHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	// 3️⃣ Generate invoice fields if not present
-	if waybill.ErpInvoiceId == "" {
-
-		now := time.Now().UTC()
-
-		// ---- Generate ERP Invoice ID ----
-		var last deliveryproof.Waybill
-		next := 1
-
-		err := initializers.DB.
-			Where("erp_invoice_id IS NOT NULL AND erp_invoice_id != ''").
-			Order("id DESC").
-			First(&last).Error
-
-		if err == nil && last.ErpInvoiceId != "" {
-			re := regexp.MustCompile(`\d+$`)
-			if m := re.FindString(last.ErpInvoiceId); m != "" {
-				n, _ := strconv.Atoi(m)
-				next = n + 1
-			}
-		}
-
-		waybill.ErpInvoiceId = fmt.Sprintf("ERP-INV-%05d", next)
-		waybill.ErpInvoiceCode = fmt.Sprintf("INV-2026/%05d", next)
-		waybill.ErpInvoiceDate = &now
-
-		initializers.DB.Save(&waybill)
-	}
-
 	// 4️⃣ Fetch delivery document
 	var deliveryDoc delivery.CreateDeliveryDocuments
 	if err := initializers.DB.
@@ -455,12 +427,12 @@ func GetDeliveryDocumentsInvoiceHandler(c *fiber.Ctx) error {
 			StockKeepingUnit: item.StockKeepingUnit,
 			Quantity:         item.Quantity,
 			DeliveryNote: deliveryproof.InvoiceDeliveryNote{
-				TempERPDeliveryNoteId: waybill.TempID,
-				ERPDeliveryDocumentId: deliveryDoc.DeliveryDocumentID,
+				TempERPDeliveryNoteId:   waybill.TempID,
+				ERPDeliveryDocumentId:   deliveryDoc.DeliveryDocumentID,
 				ERPDeliveryDocumentCode: deliveryDoc.DeliveryDocumentCode,
 				ERPDeliveryDocumentDate: deliveryDoc.CreatedAt,
-				ERPItemID:              item.ErpItemID,
-				Quantity:               item.Quantity,
+				ERPItemID:               item.ErpItemID,
+				Quantity:                item.Quantity,
 				// OrderItemID:            item.OrderItemID,
 			},
 		})
